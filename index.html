@@ -335,7 +335,7 @@
     
     <!-- 標題 -->
     <div class="app-header d-flex justify-content-between align-items-center">
-        <div class="app-title">
+        <div class="app-title d-flex align-items-center">
             <span class="text-accent me-2">■</span>永華DC盤點系統
             <!-- NEW: 版本號與資訊按鈕 -->
             <small class="text-muted ms-2 fw-normal no-print" style="font-size: 0.8rem;">v{{ APP_VERSION }}</small>
@@ -343,20 +343,19 @@
                 <i class="bi bi-info-circle" style="font-size: 1.1rem;"></i>
             </button>
         </div>
-        <button @click="openSettings" class="btn btn-sm btn-outline-secondary no-print">
-            <i class="bi bi-gear me-1"></i>設定
-        </button>
+        <!-- Removed original setting button -->
     </div>
     
-    <!-- 頂端按鈕區 (列印時隱藏) -->
-    <div class="d-flex gap-2 mb-3 no-print top-controls">
-        <button @click="downloadSummaryCSV" class="btn btn-sm btn-outline-secondary flex-grow-1">
-            <i class="bi bi-file-earmark-spreadsheet me-1"></i>匯出CSV
+    <!-- NEW: 匯入盤點資料按鈕 (Below header) -->
+    <div class="d-flex justify-content-between align-items-center mb-3 no-print top-controls">
+        <button @click="openSettings" class="btn btn-sm btn-outline-secondary rounded-1 flex-grow-1 me-2">
+            <i class="bi bi-cloud-arrow-down me-1"></i>匯入盤點資料
         </button>
         <button @click="endInventoryPDF" class="btn btn-sm btn-accent flex-grow-1">
             <i class="bi bi-file-earmark-pdf me-1"></i>結束盤點 (PDF)
         </button>
     </div>
+    <!-- Removed CSV button and moved button group logic here -->
 
     <!-- 掃描控制區 (列印時隱藏) -->
     <div class="main-card no-print">
@@ -634,8 +633,8 @@
     <div v-if="showDbModal" class="custom-modal-overlay">
         <div class="custom-modal" style="max-width: 600px;">
             <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
-                <h5 class="fw-bold mb-0">系統設定</h5>
-                <button @click="showDbModal = false" class="btn-close"></button>
+                <h5 class="fw-bold mb-0">盤點資料匯入設定</h5> 
+                <!-- REMOVED CLOSE BUTTON -->
             </div>
             
             <div class="mb-4">
@@ -656,11 +655,8 @@
             
              <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                 <small class="text-muted">目前資料: {{ Object.keys(productDb).length }} 筆</small>
-                <!-- NEW: 簡化按鈕，避免混淆 -->
-                <div class="d-flex gap-2">
-                    <button @click="showDbModal = false" class="btn btn-outline-secondary px-4">關閉</button>
-                    <button @click="saveProductDb" class="btn btn-success px-4">儲存設定</button>
-                </div>
+                <!-- UPDATED: 點擊後儲存並關閉 -->
+                <button @click="saveProductDbAndClose" class="btn btn-success px-4">儲存設定</button>
             </div>
         </div>
     </div>
@@ -674,20 +670,14 @@
             </div>
             
             <div class="mb-4" style="max-height: 400px; overflow-y: auto;">
-                <p class="fw-bold text-accent">本次版本 (DD1.0.1) 重大更新：</p>
-                <ul class="list-unstyled small">
-                    <li><i class="bi bi-pin-angle-fill me-2 text-primary"></i>**流程優化**：新增獨立的 **「上次盤點資訊卡」**，讓您在掃描後能直接在資訊卡下方輸入備註，無需在表格中查找。</li>
-                    <li><i class="bi bi-touch me-2 text-success"></i>**掃描效率**：新增 **「觸控對焦」** 功能，在相機畫面輕點即可嘗試強制對焦，解決近距離條碼模糊問題。</li>
-                    <li><i class="bi bi-filter-square-fill me-2 text-success"></i>**數據篩選**：盤點差異表新增 **篩選/查找功能**，可即時按 SKU/品名/備註查找資料。</li>
-                </ul>
-                
-                <p class="fw-bold text-accent mt-3">過去版本 (建置期) 主要功能:</p>
-                <ul class="list-unstyled small">
-                    <li><i class="bi bi-layout-wtf me-2"></i>**介面設計**：完成 **無印簡約風** 介面風格調整，適配手機瀏覽器操作。</li>
-                    <li><i class="bi bi-sort-down-alt me-2"></i>**即時排序**：差異表優先顯示 **盤虧** (紅) > **盤盈** (藍)，且最近掃描的項目會自動浮動到頂端。</li>
-                    <li><i class="bi bi-link-45deg me-2"></i>**數據核心**：支援 **Google Sheet 雲端同步** (SKU/品名/型號/應盤量) 和智慧比對 (忽略大小寫與符號)。</li>
-                    <li><i class="bi bi-file-earmark-pdf me-2"></i>**報表輸出**：新增 **PDF 報表** (另存功能)，具備分頁標題、虧盈顏色標記及簽名欄位。</li>
-                </ul>
+                <p class="fw-bold text-accent">更新時間：2025/11/25 23:35 CST</p>
+                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.1) 重大更新：</p>
+                <ol class="small" style="padding-left: 20px;">
+                    <li>1. 流程優化：新增獨立的「上次盤點資訊卡」，讓您在掃描後能直接在資訊卡下方輸入備註。</li>
+                    <li>2. 掃描效率：新增「觸控對焦」功能，在相機畫面輕點即可嘗試強制對焦，解決近距離條碼模糊問題。</li>
+                    <li>3. 數據篩選：盤點差異表新增篩選/查找功能，可即時按 SKU/品名/備註查找資料。</li>
+                    <li>4. 頁面樣式調整：對應用程式的視覺風格進行了微調，以符合更簡約、無印風格的設計。</li>
+                </ol>
             </div>
             
             <div class="text-center small mt-3 pt-3 border-top">
@@ -730,7 +720,7 @@
                 bindSuggestions: [],
 
                 printTime: '',
-                lastScannedItem: null,
+                lastScannedItem: null, // 追蹤上次掃描的完整資訊
                 filterSearchInput: '' // 差異表篩選輸入
             }
         },
@@ -1096,8 +1086,17 @@
                 });
                 this.productDb = newDb;
                 localStorage.setItem('inventory_db_v4', JSON.stringify(newDb));
-                if(!isFromSync) { this.showDbModal = false; alert(`儲存成功，共 ${count} 筆`); }
+                // NEW: 如果是手動儲存 (非同步)，則關閉視窗
+                if(!isFromSync) { 
+                    this.showDbModal = false; 
+                    alert(`儲存成功，共 ${count} 筆`); 
+                }
                 else alert(`同步成功，共 ${count} 筆`);
+            },
+            // NEW: 儲存設定並關閉視窗的輔助函數 (對應按鈕)
+            saveProductDbAndClose() {
+                // 執行儲存，isFromSync 傳入 false 讓它觸發自動關閉
+                this.saveProductDb(false); 
             },
             downloadSummaryCSV() {
                 let csv = "\uFEFFSKU,品名,應盤,實盤,差異,備註\n";

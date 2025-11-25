@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>永華DC盤點系統</title>
+    
+    <!-- 1. Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 2. Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- 3. Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 4. html5-qrcode (條碼掃描) -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- Google Fonts: Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* 無印風配色 */
+            --muji-bg: #F5F5F3;      
+            --muji-card: #FFFFFF;    
+            --muji-text: #333333;    
+            --muji-sub: #757575;     
+            --muji-border: #E0E0E0;  
+            
+            --primary-color: #555555; 
+            --primary-hover: #333333;
+            --accent-color: #7F0019;  
+            
+            --border-radius: 4px;     
+            --font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        body { 
+            background-color: var(--muji-bg); 
+            font-family: var(--font-family);
+            color: var(--muji-text);
+            -webkit-font-smoothing: antialiased;
+            letter-spacing: 0.02em;
+            overflow-x: hidden;
+        }
+
+        .container { padding-left: 12px; padding-right: 12px; }
+
+        .app-header {
+            border-bottom: 1px solid #dcdcdc;
+            background: var(--muji-bg);
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+        .app-title { font-weight: 700; color: var(--muji-text); font-size: 1.25rem; }
+
+        .main-card {
+            background: var(--muji-card);
+            border: 1px solid var(--muji-border);
+            border-radius: var(--border-radius);
+            box-shadow: none; 
+            padding: 20px; 
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .btn { 
+            border-radius: var(--border-radius); 
+            font-weight: 500; 
+            padding: 10px 15px; 
+            border: none;
+            letter-spacing: 0.05em;
+            font-size: 1rem;
+        }
+        .btn-primary { background-color: var(--primary-color); color: #fff; }
+        .btn-primary:hover, .btn-primary:active { background-color: var(--primary-hover) !important; }
+        .btn-outline-secondary { border: 1px solid #999; color: #555; background: transparent; }
+        .btn-outline-secondary:hover { background: #eee; color: #333; border-color: #555; }
+        .btn-accent { background-color: var(--accent-color); color: white; }
+        .btn-accent:hover { background-color: #5a0012; color: white; }
+        .btn-dark { background-color: #333; color: white; }
+
+        .btn-scan { height: 52px; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+        .form-control { 
+            border-radius: var(--border-radius); 
+            border: 1px solid var(--muji-border);
+            background-color: #FAFAFA;
+            padding: 12px 16px; 
+            font-size: 1rem;
+            color: var(--muji-text);
+        }
+        .form-control:focus { background-color: #fff; border-color: var(--primary-color); box-shadow: none; outline: 1px solid var(--primary-color); }
+
+        .camera-container {
+            position: relative; width: 100%; background: #F0F0F0;
+            border-radius: var(--border-radius); margin-bottom: 15px; overflow: hidden;
+            min-height: 250px; display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--muji-border);
+        }
+        #reader { width: 100%; height: 100%; }
+
+        .nav-pills {
+            background: transparent; border: none; border-bottom: 1px solid var(--muji-border);
+            padding: 0; gap: 10px; border-radius: 0; flex-wrap: nowrap; overflow-x: auto; 
+        }
+        .nav-pills .nav-item { flex: 1; text-align: center; }
+        .nav-pills .nav-link { 
+            border-radius: 0; color: var(--muji-sub); font-weight: 500; 
+            padding: 12px 5px; background: transparent; border-bottom: 3px solid transparent;
+            margin-bottom: -1px; font-size: 0.95rem; white-space: nowrap;
+        }
+        .nav-pills .nav-link.active { 
+            background-color: transparent; color: var(--accent-color); 
+            border-bottom: 3px solid var(--accent-color); font-weight: 700;
+        }
+
+        .table-inventory th { 
+            font-size: 0.8rem; background-color: transparent; color: var(--muji-sub); 
+            padding: 8px 4px; border-bottom: 2px solid var(--muji-border); font-weight: 500;
+        }
+        .table-inventory td { padding: 12px 4px; vertical-align: middle; border-bottom: 1px solid #EEEEEE; }
+        .table-inventory tr:last-child td { border-bottom: none; }
+        
+        .model-name { font-size: 0.95rem; font-weight: 700; color: #333; margin-bottom: 2px; }
+        .model-sub { font-size: 0.75rem; color: #777; }
+
+        .diff-badge { font-size: 0.85rem; padding: 4px 6px; border-radius: 2px; font-weight: 500; font-family: monospace; }
+        
+        .status-match td { background-color: #F9FDF9; } 
+        .status-shortage td { background-color: #FFF5F5; } 
+        .status-surplus td { background-color: #F5F9FF; } 
+
+        .text-accent { color: var(--accent-color); }
+        .bg-match { background-color: #E8F5E9; color: #2E7D32; }
+        .bg-shortage { background-color: #FFEBEE; color: #C62828; }
+        .bg-surplus { background-color: #E3F2FD; color: #1565C0; }
+
+        .suggestion-list {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+            background: white; border: 1px solid var(--muji-border); border-top: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-height: 250px; overflow-y: auto;
+        }
+        .suggestion-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        .suggestion-item:hover { background-color: #fafafa; }
+
+        .custom-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4); z-index: 10000; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        .custom-modal {
+            background: #FFFFFF; width: 90%; max-width: 450px; 
+            border-radius: var(--border-radius); padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); animation: fadeIn 0.2s ease;
+            border: 1px solid #eee;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .big-qty-input { 
+            font-size: 2.5rem; font-weight: 300; height: 70px; 
+            text-align: center; border: none; background: transparent; 
+            color: var(--muji-text); font-family: monospace; width: 80px;
+        }
+        .big-qty-input:focus { box-shadow: none; outline: none; }
+        
+        .code-display {
+            background: #F0F0F0; color: #555; 
+            padding: 4px 8px; border-radius: 2px; 
+            font-family: monospace; font-size: 0.85rem; word-break: break-all;
+        }
+
+        /* --- 列印/PDF 專用樣式 (Print View) --- */
+        #print-footer { display: none; }
+
+        @media print {
+            /* 強制背景色與圖形，確保紅/藍底色能印出來 */
+            body { 
+                background-color: white; 
+                -webkit-print-color-adjust: exact !important; 
+                print-color-adjust: exact !important; 
+                color-adjust: exact !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+            
+            /* 隱藏螢幕介面元素 */
+            .no-print, .btn, .app-header button, .nav-pills, .camera-container, .input-group, .form-text, label {
+                display: none !important;
+            }
+            
+            /* 隱藏螢幕版表格 */
+            .screen-only-table { display: none !important; }
+            
+            /* 顯示並重設列印版表格的容器屬性，解除所有捲動限制 */
+            .print-only-table { 
+                display: block !important; 
+                overflow: visible !important; 
+                height: auto !important;
+                border: none !important; 
+                padding: 0 !important; 
+                box-shadow: none !important; 
+                margin: 0 !important;
+            }
+            
+            /* 標題緊湊化 */
+            .app-header { 
+                border-bottom: 2px solid #000; 
+                margin-bottom: 10px; 
+                padding-bottom: 5px; 
+            }
+            .app-title { font-size: 14pt; margin: 0; color: #000; }
+            
+            .main-card, .table-responsive, .main-table-container { 
+                border: none !important; 
+                padding: 0 !important; 
+                box-shadow: none !important; 
+                margin: 0 !important;
+                overflow: visible !important; 
+            }
+            
+            /* 表格本體設定 */
+            .table-inventory { 
+                width: 100%; 
+                border-collapse: collapse; 
+                table-layout: fixed; 
+            }
+            
+            /* 標題列重複設定 - 核心修正 */
+            thead { 
+                display: table-header-group; 
+            }
+            
+            tr { 
+                page-break-inside: avoid; /* 避免行被切斷 - 關鍵 */
+                display: table-row !important; 
+            }
+            
+            .table-inventory th { 
+                border-bottom: 2px solid #000; 
+                color: #000; 
+                font-size: 9pt; 
+                padding: 4px 2px;
+                text-align: left;
+                background-color: #fff;
+            }
+            
+            .table-inventory td { 
+                border-bottom: 1px solid #ccc; 
+                font-size: 8pt; 
+                padding: 2px 4px; 
+                vertical-align: middle;
+                height: auto; 
+                line-height: 1.2; 
+            }
+            
+            /* 單行呈現設定 (SKU + Name) */
+            .model-name, .model-sub { 
+                font-size: 8pt; 
+                margin: 0;
+                display: inline; 
+            }
+            .model-sub { 
+                color: #000 !important; 
+                font-weight: 700;
+                margin-right: 8px;
+            }
+            .model-sub span { color: #000 !important; } 
+            .model-sub span.text-muted { display: none; } 
+            
+            /* 背景色設定 */
+            tr.status-shortage td { background-color: #FFCCCC !important; color: #000; } 
+            tr.status-surplus td { background-color: #CCEBFF !important; color: #000; } 
+            tr.status-match td { background-color: #FFF !important; }
+            
+            /* 備註欄位 */
+            input.form-control-sm { 
+                border: none !important; 
+                padding: 0; 
+                font-size: 8pt; 
+                background: transparent; 
+                height: auto;
+            }
+            
+            /* 頁尾 */
+            #print-footer {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                margin-top: 10px;
+                padding-top: 5px;
+                border-top: 1px solid #000;
+                font-size: 8pt;
+                page-break-inside: avoid;
+            }
+            .print-time { font-family: monospace; }
+            .print-sign { min-width: 150px; border-bottom: 1px solid #000; text-align: center; }
+            
+            /* 隱藏差異徽章背景，改純文字 */
+            .diff-badge { 
+                border: none; 
+                padding: 0; 
+                font-size: 8pt; 
+                font-weight: bold;
+                background: transparent !important;
+                color: #000 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container py-3" style="max-width: 800px;">
+    
+    <!-- 標題 -->
+    <div class="app-header d-flex justify-content-between align-items-center">
+        <div class="app-title">
+            <span class="text-accent me-2">■</span>永華DC盤點系統
+        </div>
+        <button @click="openSettings" class="btn btn-sm btn-outline-secondary no-print">
+            <i class="bi bi-gear me-1"></i>設定
+        </button>
+    </div>
+    
+    <!-- 頂端按鈕區 (列印時隱藏) -->
+    <div class="d-flex gap-2 mb-3 no-print top-controls">
+        <button @click="downloadSummaryCSV" class="btn btn-sm btn-outline-secondary flex-grow-1">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>匯出CSV
+        </button>
+        <button @click="endInventoryPDF" class="btn btn-sm btn-accent flex-grow-1">
+            <i class="bi bi-file-earmark-pdf me-1"></i>結束盤點 (PDF)
+        </button>
+    </div>
+
+    <!-- 掃描控制區 (列印時隱藏) -->
+    <div class="main-card no-print">
+        <div class="camera-container" v-show="isScanning">
+            <div id="reader"></div>
+        </div>
+
+        <div v-if="!isScanning">
+            <button @click="startScanner" class="btn btn-primary w-100 btn-scan mb-3">
+                <i class="bi bi-upc-scan"></i> 啟動掃描
+            </button>
+        </div>
+        <div v-else class="mb-3">
+            <button @click="stopScanner" class="btn btn-outline-secondary w-100 btn-scan">
+                停止掃描
+            </button>
+        </div>
+
+        <label class="form-label text-muted small mb-1">手動輸入 / 搜尋</label>
+        <div class="input-group position-relative">
+            <input type="text" v-model="manualInput" class="form-control" placeholder="輸入SKU、型號、品名..." @keyup.enter="handleManualInput" @input="updateSuggestions">
+            <button class="btn btn-dark" @click="handleManualInput">確認</button>
+            
+            <div v-if="suggestions.length > 0" class="suggestion-list">
+                <div v-for="s in suggestions" :key="s.code" class="suggestion-item" @click="selectSuggestion(s)">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-bold text-dark">{{ s.name }}</span>
+                        <span class="badge bg-light text-dark border rounded-0 fw-normal">{{ s.sku }}</span>
+                    </div>
+                    <div class="small text-muted font-monospace">{{ s.code }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頁籤 (列印時隱藏) -->
+    <ul class="nav nav-pills mb-3 no-print">
+        <li class="nav-item">
+            <button class="nav-link" :class="{ active: currentTab === 'diff' }" @click="currentTab = 'diff'">
+                盤點差異表
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" :class="{ active: currentTab === 'history' }" @click="currentTab = 'history'">
+                紀錄清單 <span class="text-muted small">({{ records.length }})</span>
+            </button>
+        </li>
+    </ul>
+
+    <!-- 盤點差異表 (螢幕版 - 依差異排序) -->
+    <div v-show="currentTab === 'diff'">
+        
+        <!-- 統計數據 (移至上方) -->
+        <div class="mb-3 d-flex gap-3 small text-muted no-print">
+            <span><span class="text-danger">●</span> 虧: {{ countStats.shortage }}</span>
+            <span><span class="text-primary">●</span> 盈: {{ countStats.surplus }}</span>
+            <span><span class="text-success">●</span> 符: {{ countStats.match }}</span>
+        </div>
+
+        <div class="main-card p-0 screen-only-table" style="border:none; background: transparent;">
+            <div class="bg-white border rounded-1 overflow-hidden main-table-container">
+                <div class="table-responsive">
+                    <table class="table table-inventory mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 50%">SKU / 品名 (型號)</th>
+                                <th class="text-center" style="width: 15%">實/應</th>
+                                <th class="text-center" style="width: 10%">差</th>
+                                <th style="width: 25%">備註</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-if="inventorySummary.length === 0">
+                                <td colspan="4" class="text-center py-5 text-muted">資料庫為空，請先進行設定</td>
+                            </tr>
+                            <tr v-for="item in inventorySummary" :key="item.code" :class="getStatusClass(item)">
+                                <td>
+                                    <div class="model-name">{{ item.name }}</div>
+                                    <div class="model-sub">
+                                        <span class="me-2 text-accent fw-bold">{{ item.sku }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="small text-muted mb-1">應:{{ item.expected }}</div>
+                                    <div class="fs-6 fw-bold">{{ item.scanned }}</div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="diff-badge" :class="getBadgeClass(item)">
+                                        {{ item.diff > 0 ? '+' + item.diff : item.diff }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <input class="form-control form-control-sm border-0" style="background: transparent; border-bottom: 1px dashed #ccc !important; border-radius: 0;" list="remarkOptions" v-model="remarkDb[item.code]" @change="persistRemarks" placeholder="輸入...">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 盤點差異表 (列印版 - 依 SKU 排序 - 強制單行顯示) -->
+    <div class="main-card p-0 print-only-table d-none" style="border:none; background: transparent;">
+        <!-- 移除 table-responsive 與 overflow-hidden，這是讓標題重複的關鍵 -->
+        <div class="bg-white main-table-container">
+            <table class="table table-inventory mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 60%">SKU / 品名 (型號)</th>
+                        <th class="text-center" style="width: 12%">實 / 應</th>
+                        <th class="text-center" style="width: 8%">差</th>
+                        <th style="width: 20%">備註</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="item in inventorySummaryForPrint" :key="item.code" :class="getStatusClass(item)">
+                        <td>
+                            <!-- 強制單行：SKU 粗體 + 品名 -->
+                            <span class="model-sub">{{ item.sku }}</span>
+                            <span class="model-name">{{ item.name }}</span>
+                        </td>
+                        <td class="text-center fw-bold">
+                            {{ item.scanned }} / {{ item.expected }}
+                        </td>
+                        <td class="text-center">
+                            <span class="diff-badge">
+                                {{ item.diff > 0 ? '+' + item.diff : item.diff }}
+                            </span>
+                        </td>
+                        <td>
+                            <span style="font-size: 8pt;">{{ remarkDb[item.code] }}</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <datalist id="remarkOptions">
+        <option value="當日送貨"></option>
+        <option value="寄倉7170"></option>
+        <option value="代送"></option>
+        <option value="誤差"></option>
+    </datalist>
+
+    <!-- 底部統計 (螢幕版) -->
+    <div v-show="currentTab === 'diff'" class="mt-3 d-flex flex-wrap justify-content-between align-items-center gap-2 no-print">
+        <div class="small text-muted d-flex gap-3">
+            <!-- 佔位，實際統計已移至上方 -->
+        </div>
+    </div>
+
+    <!-- 列印專用頁尾 -->
+    <div id="print-footer">
+        <div class="print-time">盤點時間: {{ printTime }}</div>
+        <div>
+            盤點人員簽名:
+            <div class="print-sign"></div>
+        </div>
+    </div>
+
+    <!-- 掃描紀錄 (列印時隱藏) -->
+    <div v-if="currentTab === 'history'" class="no-print">
+        <div class="d-flex justify-content-end mb-2">
+            <button @click="clearAll" class="btn btn-sm btn-outline-secondary rounded-1">清空紀錄</button>
+        </div>
+        <div class="bg-white border rounded-1">
+            <div v-if="records.length === 0" class="text-center text-muted py-5">尚無紀錄</div>
+            <div v-for="(item, index) in records" :key="index" class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <div style="overflow: hidden;">
+                    <div class="fw-bold text-dark text-truncate">{{ item.name }}</div>
+                    <div class="small text-muted font-monospace mt-1">{{ item.code }}</div>
+                    <small class="text-muted d-block mt-1" style="font-size: 0.75rem">{{ item.time }}</small>
+                </div>
+                <div class="d-flex align-items-center ms-3">
+                    <span class="fs-5 me-3 fw-bold">x {{ item.qty }}</span>
+                    <button @click="deleteItem(index)" class="btn btn-link text-muted p-1"><i class="bi bi-x-lg"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 確認視窗 Modal -->
+    <div v-if="pendingScan" class="custom-modal-overlay">
+        <div class="custom-modal">
+            <!-- 綁定模式 -->
+            <div v-if="isBindingMode" class="text-center">
+                <h5 class="fw-bold mb-4">🔗 綁定未知條碼</h5>
+                <div class="p-3 bg-light mb-3 border rounded-1">
+                    <div class="font-monospace fw-bold text-break text-accent">{{ pendingScan.code }}</div>
+                </div>
+                <p class="small text-muted text-start mb-2">搜尋並選擇要連結的商品：</p>
+                <div class="input-group mb-3">
+                    <input type="text" v-model="bindSearchInput" class="form-control" placeholder="輸入名稱或型號..." @input="updateBindSuggestions">
+                </div>
+                <div class="list-group text-start mb-4 border rounded-0" style="max-height: 150px; overflow-y: auto;">
+                    <button v-for="s in bindSuggestions" :key="s.code" class="list-group-item list-group-item-action border-0 border-bottom rounded-0" @click="confirmBind(s)">
+                        <div class="fw-bold">{{ s.name }}</div>
+                        <small class="text-muted">{{ s.sku }}</small>
+                    </button>
+                </div>
+                <button @click="isBindingMode = false" class="btn btn-outline-secondary w-100">取消</button>
+            </div>
+
+            <!-- 一般確認模式 -->
+            <div v-else>
+                <div class="text-center mb-4">
+                    <div class="text-success mb-2" style="font-size: 2rem;">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <h5 class="fw-bold mb-1">{{ pendingScan.name }}</h5>
+                    <div v-if="pendingScan.sku" class="text-accent fw-bold mb-2">{{ pendingScan.sku }}</div>
+                    
+                    <div v-if="pendingScan.name === '未知商品 (未建檔)'" class="mt-3">
+                        <button @click="enableBindingMode" class="btn btn-sm btn-outline-secondary rounded-1">
+                            綁定此條碼
+                        </button>
+                    </div>
+                </div>
+
+                <div class="py-2 mb-4 text-center border-top border-bottom">
+                    <div class="d-flex align-items-center justify-content-center gap-3">
+                        <button class="btn btn-outline-secondary rounded-circle p-0" style="width: 40px; height: 40px;" @click="adjustPendingQty(-1)"><i class="bi bi-dash"></i></button>
+                        <input type="number" v-model="pendingScan.qty" class="big-qty-input" ref="qtyInput">
+                        <button class="btn btn-outline-secondary rounded-circle p-0" style="width: 40px; height: 40px;" @click="adjustPendingQty(1)"><i class="bi bi-plus"></i></button>
+                    </div>
+                    <div class="text-muted small mt-1">盤點數量</div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button @click="cancelScan" class="btn btn-outline-secondary flex-grow-1">取消</button>
+                    <button @click="confirmScan" class="btn btn-primary flex-grow-1">確認</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設定 Modal -->
+    <div v-if="showDbModal" class="custom-modal-overlay">
+        <div class="custom-modal" style="max-width: 600px;">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                <h5 class="fw-bold mb-0">系統設定</h5>
+                <button @click="showDbModal = false" class="btn-close"></button>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-muted">Google 試算表同步 (CSV 網址)</label>
+                <div class="input-group">
+                    <input type="text" v-model="googleSheetUrl" class="form-control" placeholder="https://...">
+                    <button @click="syncGoogleSheet" class="btn btn-primary" :disabled="isSyncing">
+                        {{ isSyncing ? '同步中...' : '同步' }}
+                    </button>
+                </div>
+                <div class="form-text small">格式：SKU, 品名, 型號, 應盤數量</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-muted">手動編輯資料庫</label>
+                <textarea v-model="dbInputText" class="form-control font-monospace" rows="5" style="font-size: 0.9rem;" placeholder="SKU,品名,型號,數量"></textarea>
+            </div>
+            
+             <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                <small class="text-muted">目前資料: {{ Object.keys(productDb).length }} 筆</small>
+                <button @click="saveProductDb" class="btn btn-success px-4">儲存變更</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const { createApp } = Vue;
+
+    createApp({
+        data() {
+            return {
+                currentTab: 'diff',
+                isScanning: false,
+                html5QrcodeScanner: null,
+                
+                manualInput: '',
+                suggestions: [],
+                
+                productDb: {}, 
+                remarkDb: {}, 
+                barcodeBindingDb: {}, 
+
+                showDbModal: false,
+                dbInputText: '',
+                googleSheetUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSUp0A0KtvbJvfkWPVXKAA_gBMgUXAff_rNAwKnl3jYiVpFLegSHbL5TX48b68XOlUaOki45TrXQPL_/pub?gid=0&single=true&output=csv',
+                isSyncing: false,
+
+                pendingScan: null,
+                records: [],
+                
+                isBindingMode: false,
+                bindSearchInput: '',
+                bindSuggestions: [],
+
+                printTime: ''
+            }
+        },
+        computed: {
+            inventorySummary() {
+                const summary = {};
+                for (const [code, item] of Object.entries(this.productDb)) {
+                    summary[code] = { code, ...item, scanned: 0 };
+                }
+                this.records.forEach(record => {
+                    let targetCode = record.code;
+                    if (!summary[targetCode]) {
+                        summary[targetCode] = { 
+                            code: targetCode, 
+                            name: record.name, 
+                            sku: record.sku || targetCode, 
+                            expected: 0, 
+                            scanned: 0 
+                        };
+                    }
+                    summary[targetCode].scanned += record.qty;
+                });
+                
+                return Object.values(summary).map(item => {
+                    item.diff = item.scanned - item.expected;
+                    if (this.remarkDb[item.code] === undefined) this.remarkDb[item.code] = '';
+                    return item;
+                }).sort((a, b) => {
+                    // 螢幕排序邏輯修正：盤虧 -> 盤盈 -> 相符
+                    const getPriority = (diff) => {
+                        if (diff < 0) return 1; // 盤虧 (Loss/Shortage)
+                        if (diff > 0) return 2; // 盤盈 (Gain/Surplus)
+                        return 3; // 相符/未盤 (Match/Unscanned)
+                    };
+
+                    const pA = getPriority(a.diff);
+                    const pB = getPriority(b.diff);
+                    
+                    if (pA !== pB) return pA - pB;
+                    
+                    // 次要排序：依 SKU 排序
+                    return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
+                });
+            },
+            countStats() {
+                let shortage = 0, surplus = 0, match = 0;
+                this.inventorySummary.forEach(i => {
+                    if (i.diff < 0) shortage++;
+                    else if (i.diff > 0) surplus++;
+                    else if (i.scanned > 0) match++;
+                });
+                return { shortage, surplus, match };
+            },
+            inventorySummaryForPrint() {
+                // PDF 專用：依 SKU 排序
+                return [...this.inventorySummary].sort((a, b) => {
+                    return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
+                });
+            }
+        },
+        mounted() {
+            const savedRecords = localStorage.getItem('inventory_records');
+            if (savedRecords) this.records = JSON.parse(savedRecords);
+            
+            const savedDb = localStorage.getItem('inventory_db_v4'); 
+            if (savedDb) {
+                this.productDb = JSON.parse(savedDb);
+                this.dbInputText = Object.entries(this.productDb).map(([c, i]) => {
+                    let displayModel = '';
+                    let displayName = i.name;
+                    const match = i.name.match(/(.*)\s\((.*)\)$/);
+                    if (match) {
+                        displayName = match[1];
+                        displayModel = match[2];
+                    }
+                    return `${i.sku},${displayName},${displayModel},${i.expected}`; 
+                }).join('\n');
+            }
+            
+            const savedRemarks = localStorage.getItem('inventory_remarks');
+            if (savedRemarks) this.remarkDb = JSON.parse(savedRemarks);
+            
+            const savedBindings = localStorage.getItem('inventory_bindings');
+            if (savedBindings) this.barcodeBindingDb = JSON.parse(savedBindings);
+            
+            const savedUrl = localStorage.getItem('inventory_sheet_url_updated');
+            if (savedUrl) this.googleSheetUrl = savedUrl;
+        },
+        methods: {
+            openSettings() {
+                this.showDbModal = true;
+            },
+
+            async startScanner() {
+                this.isScanning = true;
+                this.$nextTick(() => {
+                    const config = { 
+                        fps: 10, 
+                        qrbox: { width: 250, height: 250 },
+                        formatsToSupport: [ 
+                            Html5QrcodeSupportedFormats.QR_CODE, 
+                            Html5QrcodeSupportedFormats.EAN_13, 
+                            Html5QrcodeSupportedFormats.CODE_128, 
+                            Html5QrcodeSupportedFormats.CODE_39 
+                        ]
+                    };
+                    this.html5QrcodeScanner = new Html5Qrcode("reader");
+                    this.html5QrcodeScanner.start({ facingMode: "environment" }, config, (decodedText) => {
+                        this.playBeep();
+                        this.triggerConfirm(decodedText);
+                    }).catch(err => {
+                        alert("無法啟動相機: " + err);
+                        this.isScanning = false;
+                    });
+                });
+            },
+
+            stopScanner() {
+                if (this.html5QrcodeScanner) {
+                    this.html5QrcodeScanner.stop().then(() => {
+                        this.html5QrcodeScanner.clear();
+                        this.html5QrcodeScanner = null;
+                        this.isScanning = false;
+                    }).catch(err => {
+                        console.error(err);
+                        this.isScanning = false;
+                    });
+                }
+            },
+
+            normalizeStr(str) {
+                if (!str) return '';
+                return str.toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            },
+
+            findProduct(input) {
+                if (!input) return null;
+                const cleanInput = input.trim();
+                const normInput = this.normalizeStr(cleanInput);
+
+                if (this.barcodeBindingDb[normInput]) {
+                    const targetCode = this.barcodeBindingDb[normInput];
+                    if (this.productDb[targetCode]) return { code: targetCode, ...this.productDb[targetCode] };
+                }
+
+                if (this.productDb[cleanInput]) return { code: cleanInput, ...this.productDb[cleanInput] };
+
+                for (const [code, item] of Object.entries(this.productDb)) {
+                    if (this.normalizeStr(item.sku) === normInput) return { code, ...item };
+                    if (this.normalizeStr(item.name) === normInput) return { code, ...item };
+                }
+
+                return { code: cleanInput, name: '未知商品 (未建檔)', sku: cleanInput, expected: 0 };
+            },
+
+            enableBindingMode() {
+                this.isBindingMode = true;
+                this.bindSearchInput = '';
+                this.bindSuggestions = [];
+            },
+            updateBindSuggestions() {
+                const input = this.normalizeStr(this.bindSearchInput);
+                if (input.length < 2) return;
+                const res = [];
+                for (const [code, item] of Object.entries(this.productDb)) {
+                    if (this.normalizeStr(item.name).includes(input) || this.normalizeStr(item.sku).includes(input)) {
+                        res.push({code, ...item});
+                        if(res.length > 10) break;
+                    }
+                }
+                this.bindSuggestions = res;
+            },
+            confirmBind(targetProduct) {
+                const scanCodeNorm = this.normalizeStr(this.pendingScan.code); 
+                this.barcodeBindingDb[scanCodeNorm] = targetProduct.code; 
+                localStorage.setItem('inventory_bindings', JSON.stringify(this.barcodeBindingDb));
+                
+                this.pendingScan = {
+                    code: targetProduct.code,
+                    name: targetProduct.name,
+                    sku: targetProduct.sku,
+                    expected: targetProduct.expected,
+                    qty: this.pendingScan.qty
+                };
+                this.isBindingMode = false;
+                alert("綁定成功！");
+            },
+
+            updateSuggestions() {
+                const input = this.manualInput.trim();
+                if (input.length < 3) { this.suggestions = []; return; }
+                const normInput = this.normalizeStr(input);
+                const results = [];
+                for (const [code, item] of Object.entries(this.productDb)) {
+                    if (this.normalizeStr(item.sku).includes(normInput) || 
+                        this.normalizeStr(item.name).includes(normInput)) {
+                        results.push({ code, ...item });
+                        if (results.length > 10) break; 
+                    }
+                }
+                this.suggestions = results;
+            },
+            selectSuggestion(item) {
+                this.manualInput = '';
+                this.suggestions = [];
+                this.triggerConfirm(item.code);
+            },
+            handleManualInput() {
+                if (!this.manualInput.trim()) return;
+                this.suggestions = [];
+                this.triggerConfirm(this.manualInput.trim());
+                this.manualInput = '';
+            },
+            triggerConfirm(input) {
+                const product = this.findProduct(input);
+                this.pendingScan = { 
+                    code: product.code, 
+                    name: product.name, 
+                    sku: product.sku,
+                    expected: product.expected, 
+                    qty: 1 
+                };
+                this.$nextTick(() => { if(this.$refs.qtyInput) this.$refs.qtyInput.focus(); });
+            },
+            adjustPendingQty(val) {
+                if (!this.pendingScan) return;
+                const newQty = parseInt(this.pendingScan.qty) + val;
+                if (newQty >= 1) this.pendingScan.qty = newQty;
+            },
+            cancelScan() { this.pendingScan = null; this.isBindingMode = false; },
+            confirmScan() {
+                if (!this.pendingScan) return;
+                const now = new Date();
+                const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+                this.records.unshift({
+                    code: this.pendingScan.code,
+                    name: this.pendingScan.name,
+                    sku: this.pendingScan.sku,
+                    qty: this.pendingScan.qty,
+                    time: timeStr
+                });
+                localStorage.setItem('inventory_records', JSON.stringify(this.records));
+                this.pendingScan = null;
+                this.isBindingMode = false;
+            },
+            deleteItem(index) {
+                if(confirm("刪除此筆紀錄？")) {
+                    this.records.splice(index, 1);
+                    localStorage.setItem('inventory_records', JSON.stringify(this.records));
+                }
+            },
+            clearAll() {
+                if(confirm("確定清空？")) {
+                    this.records = [];
+                    localStorage.setItem('inventory_records', JSON.stringify(this.records));
+                }
+            },
+            async syncGoogleSheet() {
+                this.isSyncing = true;
+                try {
+                    const res = await fetch(this.googleSheetUrl);
+                    if (!res.ok) throw new Error("Network response was not ok");
+                    this.dbInputText = await res.text();
+                    this.saveProductDb(true);
+                    localStorage.setItem('inventory_sheet_url_updated', this.googleSheetUrl);
+                } catch (e) { alert("同步失敗"); } 
+                finally { this.isSyncing = false; }
+            },
+            saveProductDb(isFromSync = false) {
+                const lines = this.dbInputText.split(/\r?\n/);
+                const newDb = {};
+                let count = 0;
+                lines.forEach(line => {
+                    if(!line.trim()) return;
+                    const parts = line.split(/[,，\t]/);
+                    if (parts.length >= 2) {
+                        const sku = parts[0] ? parts[0].trim() : '';
+                        const name = parts[1] ? parts[1].trim() : '';
+                        const model = parts[2] ? parts[2].trim() : '';
+                        const expected = parts[3] ? parseInt(parts[3].trim()) : 0;
+
+                        if (sku.toLowerCase().includes('sku') || sku.includes('編號') || name.includes('名稱')) return;
+
+                        const displayName = model ? `${name} (${model})` : name;
+
+                        if (sku) {
+                            newDb[sku] = { 
+                                name: displayName, 
+                                sku: sku, 
+                                expected: isNaN(expected) ? 0 : expected 
+                            };
+                            count++;
+                        }
+                    }
+                });
+                this.productDb = newDb;
+                localStorage.setItem('inventory_db_v4', JSON.stringify(newDb));
+                if(!isFromSync) { this.showDbModal = false; alert(`儲存成功，共 ${count} 筆`); }
+                else alert(`同步成功，共 ${count} 筆`);
+            },
+            downloadSummaryCSV() {
+                let csv = "\uFEFFSKU,品名,應盤,實盤,差異,備註\n";
+                this.inventorySummary.forEach(i => {
+                    const remark = (this.remarkDb[i.code] || '').replace(/,/g, '，');
+                    csv += `"${i.code}","${i.name}",${i.expected},${i.scanned},${i.diff},"${remark}"\n`;
+                });
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = `盤點差異表_${new Date().toISOString().slice(0,10)}.csv`;
+                link.click();
+            },
+            endInventoryPDF() {
+                const now = new Date();
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const hh = String(now.getHours()).padStart(2, '0');
+                const min = String(now.getMinutes()).padStart(2, '0');
+                this.printTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+                this.$nextTick(() => { window.print(); });
+            },
+            persistRemarks() { localStorage.setItem('inventory_remarks', JSON.stringify(this.remarkDb)); },
+            playBeep() {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.type = 'sine'; osc.frequency.value = 1000; gain.gain.value = 0.1;
+                osc.start(); setTimeout(() => osc.stop(), 100);
+            },
+            getStatusClass(item) {
+                if (item.scanned === 0 && item.expected > 0) return 'status-shortage'; 
+                if (item.diff === 0) return 'status-match';
+                if (item.diff < 0) return 'status-shortage';
+                return 'status-surplus';
+            },
+            getBadgeClass(item) {
+                if (item.diff === 0) return 'bg-match';
+                if (item.diff < 0) return 'bg-shortage';
+                return 'bg-surplus';
+            }
+        }
+    }).mount('#app');
+</script>
+
+</body>
+</html>

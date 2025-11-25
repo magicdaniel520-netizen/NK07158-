@@ -135,11 +135,26 @@
         .bg-shortage { background-color: #FFEBEE; color: #C62828; }
         .bg-surplus { background-color: #E3F2FD; color: #1565C0; }
         
-        /* NEW: Visual cue for the item that was just scanned */
-        .highlight-current-scan {
+        /* Last Scan Info Box */
+        .last-scan-info {
+            background: #fff;
+            border: 1px solid var(--muji-border);
+            border-radius: var(--border-radius);
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            animation: pulse-border 1.5s infinite;
+        }
+        .scan-qty {
+            font-size: 1.5rem;
             font-weight: 700;
-            color: var(--primary-color);
-            background-color: #e3f2fd50;
+            color: var(--accent-color);
+            font-family: monospace;
+        }
+        @keyframes pulse-border {
+            0% { border-color: var(--muji-border); }
+            50% { border-color: var(--primary-color); }
+            100% { border-color: var(--muji-border); }
         }
 
         .suggestion-list {
@@ -322,6 +337,11 @@
     <div class="app-header d-flex justify-content-between align-items-center">
         <div class="app-title">
             <span class="text-accent me-2">■</span>永華DC盤點系統
+            <!-- NEW: 版本號與資訊按鈕 -->
+            <small class="text-muted ms-2 fw-normal no-print" style="font-size: 0.8rem;">v{{ APP_VERSION }}</small>
+            <button @click="showReleaseNotesModal = true" class="btn btn-sm btn-outline-secondary ms-2 p-1" style="border-radius: 50%;">
+                <i class="bi bi-info-circle" style="font-size: 1.1rem;"></i>
+            </button>
         </div>
         <button @click="openSettings" class="btn btn-sm btn-outline-secondary no-print">
             <i class="bi bi-gear me-1"></i>設定
@@ -341,7 +361,7 @@
     <!-- 掃描控制區 (列印時隱藏) -->
     <div class="main-card no-print">
         <div class="camera-container" v-show="isScanning">
-            <div id="reader"></div>
+            <div id="reader" @touchstart.prevent="focusCamera"></div> <!-- 添加觸控對焦事件 -->
         </div>
 
         <div v-if="!isScanning">
@@ -376,7 +396,7 @@
     <ul class="nav nav-pills mb-3 no-print">
         <li class="nav-item">
             <button class="nav-link" :class="{ active: currentTab === 'diff' }" @click="currentTab = 'diff'">
-                盤點差異表
+                盤點差異表 <i class="bi bi-search ms-1"></i>
             </button>
         </li>
         <li class="nav-item">
@@ -389,12 +409,46 @@
     <!-- 盤點差異表 (螢幕版 - 依差異排序) -->
     <div v-show="currentTab === 'diff'">
         
-        <!-- 統計數據 (移至上方) -->
+        <!-- NEW: 上次掃描資訊卡 (本次量) - 包含備註輸入 -->
+        <div v-if="lastScannedItem" class="last-scan-info no-print">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-bold">
+                    <span class="text-muted small">上次盤點：</span>
+                    <span :class="{'text-danger': lastScannedItem.name === '未知商品 (未建檔)'}">
+                        {{ lastScannedItem.sku || lastScannedItem.name }}
+                    </span>
+                    <span v-if="lastScannedItem.name !== '未知商品 (未建檔)'" class="small text-muted"> ({{ lastScannedItem.name }})</span>
+                </div>
+                <div class="scan-qty">
+                    x {{ lastScannedItem.qty }}
+                </div>
+            </div>
+            
+            <!-- NEW: 備註輸入欄位 -->
+            <div class="input-group mt-2">
+                <input class="form-control form-control-sm" 
+                       list="remarkOptions" 
+                       v-model="remarkDb[lastScannedItem.code]" 
+                       @input="persistRemarks"
+                       placeholder="輸入備註或選擇選項...">
+            </div>
+        </div>
+        
+        <!-- 統計數據 -->
         <div class="mb-3 d-flex gap-3 small text-muted no-print">
             <span><span class="text-danger">●</span> 虧: {{ countStats.shortage }}</span>
             <span><span class="text-primary">●</span> 盈: {{ countStats.surplus }}</span>
             <span><span class="text-success">●</span> 符: {{ countStats.match }}</span>
         </div>
+        
+        <!-- NEW: 專屬差異表篩選器 -->
+        <div class="input-group mb-3 no-print">
+            <span class="input-group-text" style="border-radius: var(--border-radius) 0 0 var(--border-radius); border-right: none;">
+                <i class="bi bi-filter"></i>
+            </span>
+            <input type="text" v-model="filterSearchInput" class="form-control" placeholder="篩選 SKU/品名/備註...">
+        </div>
+        
 
         <div class="main-card p-0 screen-only-table" style="border:none; background: transparent;">
             <div class="bg-white border rounded-1 overflow-hidden main-table-container">
@@ -402,28 +456,21 @@
                     <table class="table table-inventory mb-0">
                         <thead>
                             <tr>
-                                <th style="width: 40%">SKU / 品名 (型號)</th>
-                                <th class="text-center" style="width: 10%">本次量</th> <!-- NEW COLUMN: 本次量 -->
+                                <th style="width: 55%">SKU / 品名 (型號)</th>
                                 <th class="text-center" style="width: 15%">實/應</th>
                                 <th class="text-center" style="width: 10%">差</th>
-                                <th style="width: 25%">備註</th>
+                                <th style="width: 20%">備註</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="inventorySummary.length === 0">
-                                <td colspan="5" class="text-center py-5 text-muted">資料庫為空，請先進行設定</td>
+                            <tr v-if="filteredInventorySummary.length === 0">
+                                <td colspan="4" class="text-center py-5 text-muted">無符合條件的資料</td>
                             </tr>
-                            <tr v-for="item in inventorySummary" :key="item.code" :class="getStatusClass(item)">
+                            <tr v-for="item in filteredInventorySummary" :key="item.code" :class="getStatusClass(item)">
                                 <td>
                                     <div class="model-name">{{ item.name }}</div>
                                     <div class="model-sub">
                                         <span class="me-2 text-accent fw-bold">{{ item.sku }}</span>
-                                    </div>
-                                </td>
-                                <!-- NEW COLUMN DATA: 本次量 -->
-                                <td class="text-center">
-                                    <div class="fs-6 fw-bold" :class="{'highlight-current-scan': item.currentScanQty !== null}">
-                                        {{ item.currentScanQty !== null ? item.currentScanQty : '-' }}
                                     </div>
                                 </td>
                                 <td class="text-center">
@@ -436,6 +483,7 @@
                                     </span>
                                 </td>
                                 <td>
+                                    <!-- 備註輸入框 - 保持與主表格的互動 -->
                                     <input class="form-control form-control-sm border-0" style="background: transparent; border-bottom: 1px dashed #ccc !important; border-radius: 0;" list="remarkOptions" v-model="remarkDb[item.code]" @change="persistRemarks" placeholder="輸入...">
                                 </td>
                             </tr>
@@ -453,10 +501,9 @@
             <table class="table table-inventory mb-0">
                 <thead>
                     <tr>
-                        <th style="width: 50%">SKU / 品名 (型號)</th>
-                        <th class="text-center" style="width: 10%">本次量</th> <!-- NEW COLUMN: 本次量 -->
-                        <th class="text-center" style="width: 12%">實 / 應</th>
-                        <th class="text-center" style="width: 8%">差</th>
+                        <th style="width: 60%">SKU / 品名 (型號)</th>
+                        <th class="text-center" style="width: 15%">實 / 應</th>
+                        <th class="text-center" style="width: 5%">差</th>
                         <th style="width: 20%">備註</th>
                     </tr>
                 </thead>
@@ -466,10 +513,6 @@
                             <!-- 強制單行：SKU 粗體 + 品名 -->
                             <span class="model-sub">{{ item.sku }}</span>
                             <span class="model-name">{{ item.name }}</span>
-                        </td>
-                         <!-- NEW COLUMN DATA: 本次量 (PDF) -->
-                        <td class="text-center">
-                            <span style="font-size: 8pt; font-weight: 500;">{{ item.currentScanQty !== null ? item.currentScanQty : '-' }}</span>
                         </td>
                         <td class="text-center fw-bold">
                             {{ item.scanned }} / {{ item.expected }}
@@ -613,7 +656,42 @@
             
              <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                 <small class="text-muted">目前資料: {{ Object.keys(productDb).length }} 筆</small>
-                <button @click="saveProductDb" class="btn btn-success px-4">儲存變更</button>
+                <!-- NEW: 簡化按鈕，避免混淆 -->
+                <div class="d-flex gap-2">
+                    <button @click="showDbModal = false" class="btn btn-outline-secondary px-4">關閉</button>
+                    <button @click="saveProductDb" class="btn btn-success px-4">儲存設定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- NEW: 關於/更新資訊 Modal -->
+    <div v-if="showReleaseNotesModal" class="custom-modal-overlay">
+        <div class="custom-modal" style="max-width: 600px;">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                <h5 class="fw-bold mb-0">v{{ APP_VERSION }} 更新資訊</h5>
+                <button @click="showReleaseNotesModal = false" class="btn-close"></button>
+            </div>
+            
+            <div class="mb-4" style="max-height: 400px; overflow-y: auto;">
+                <p class="fw-bold text-accent">本次版本 (DD1.0.1) 重大更新：</p>
+                <ul class="list-unstyled small">
+                    <li><i class="bi bi-pin-angle-fill me-2 text-primary"></i>**流程優化**：新增獨立的 **「上次盤點資訊卡」**，讓您在掃描後能直接在資訊卡下方輸入備註，無需在表格中查找。</li>
+                    <li><i class="bi bi-touch me-2 text-success"></i>**掃描效率**：新增 **「觸控對焦」** 功能，在相機畫面輕點即可嘗試強制對焦，解決近距離條碼模糊問題。</li>
+                    <li><i class="bi bi-filter-square-fill me-2 text-success"></i>**數據篩選**：盤點差異表新增 **篩選/查找功能**，可即時按 SKU/品名/備註查找資料。</li>
+                </ul>
+                
+                <p class="fw-bold text-accent mt-3">過去版本 (建置期) 主要功能:</p>
+                <ul class="list-unstyled small">
+                    <li><i class="bi bi-layout-wtf me-2"></i>**介面設計**：完成 **無印簡約風** 介面風格調整，適配手機瀏覽器操作。</li>
+                    <li><i class="bi bi-sort-down-alt me-2"></i>**即時排序**：差異表優先顯示 **盤虧** (紅) > **盤盈** (藍)，且最近掃描的項目會自動浮動到頂端。</li>
+                    <li><i class="bi bi-link-45deg me-2"></i>**數據核心**：支援 **Google Sheet 雲端同步** (SKU/品名/型號/應盤量) 和智慧比對 (忽略大小寫與符號)。</li>
+                    <li><i class="bi bi-file-earmark-pdf me-2"></i>**報表輸出**：新增 **PDF 報表** (另存功能)，具備分頁標題、虧盈顏色標記及簽名欄位。</li>
+                </ul>
+            </div>
+            
+            <div class="text-center small mt-3 pt-3 border-top">
+                如有任何操作問題，請致電 **7158 找 家輝** 詢問。
             </div>
         </div>
     </div>
@@ -626,6 +704,7 @@
     createApp({
         data() {
             return {
+                APP_VERSION: 'DD1.0.1', // NEW
                 currentTab: 'diff',
                 isScanning: false,
                 html5QrcodeScanner: null,
@@ -638,6 +717,7 @@
                 barcodeBindingDb: {}, 
 
                 showDbModal: false,
+                showReleaseNotesModal: false, // NEW
                 dbInputText: '',
                 googleSheetUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSUp0A0KtvbJvfkWPVXKAA_gBMgUXAff_rNAwKnl3jYiVpFLegSHbL5TX48b68XOlUaOki45TrXQPL_/pub?gid=0&single=true&output=csv',
                 isSyncing: false,
@@ -650,7 +730,8 @@
                 bindSuggestions: [],
 
                 printTime: '',
-                lastScanHighlight: { code: null, qty: 0 } // NEW: 追蹤上次掃描的量
+                lastScannedItem: null,
+                filterSearchInput: '' // 差異表篩選輸入
             }
         },
         computed: {
@@ -679,11 +760,6 @@
                     item.diff = item.scanned - item.expected;
                     if (this.remarkDb[item.code] === undefined) this.remarkDb[item.code] = '';
                     
-                    // NEW: 加入本次盤點量 (僅用於高亮顯示)
-                    item.currentScanQty = (this.lastScanHighlight && item.code === this.lastScanHighlight.code) 
-                        ? this.lastScanHighlight.qty 
-                        : null;
-                    
                     return item;
                 }).sort((a, b) => {
                     // 1. 主排序：差異狀態 (盤虧:1 -> 盤盈:2 -> 相符:3)
@@ -707,6 +783,24 @@
                     return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
                 });
             },
+            
+            filteredInventorySummary() {
+                if (!this.filterSearchInput) {
+                    return this.inventorySummary;
+                }
+                const normalizedInput = this.normalizeStr(this.filterSearchInput);
+                
+                return this.inventorySummary.filter(item => {
+                    const remark = this.remarkDb[item.code] || '';
+                    
+                    if (this.normalizeStr(item.sku).includes(normalizedInput)) return true;
+                    if (this.normalizeStr(item.name).includes(normalizedInput)) return true;
+                    if (this.normalizeStr(remark).includes(normalizedInput)) return true;
+                    
+                    return false;
+                });
+            },
+            
             countStats() {
                 let shortage = 0, surplus = 0, match = 0;
                 this.inventorySummary.forEach(i => {
@@ -717,7 +811,6 @@
                 return { shortage, surplus, match };
             },
             inventorySummaryForPrint() {
-                // PDF 專用：只依 SKU 排序
                 return [...this.inventorySummary].sort((a, b) => {
                     return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
                 });
@@ -756,6 +849,25 @@
                 this.showDbModal = true;
             },
 
+            // NEW: 觸控對焦功能
+            focusCamera(event) {
+                if (!this.isScanning || !this.html5QrcodeScanner) return;
+                
+                const capabilities = this.html5QrcodeScanner.getCameraCapabilities();
+                if (capabilities && capabilities.focusMode.includes('manual')) {
+                    this.html5QrcodeScanner.applyVideoConstraints({ 
+                        advanced: [{ focusMode: 'manual' }] 
+                    });
+                    setTimeout(() => {
+                        this.html5QrcodeScanner.applyVideoConstraints({ 
+                            advanced: [{ focusMode: 'continuous' }] 
+                        });
+                    }, 100);
+                } else {
+                    console.log("Tap-to-focus not fully supported by camera/browser.");
+                }
+            },
+
             async startScanner() {
                 this.isScanning = true;
                 this.$nextTick(() => {
@@ -773,6 +885,11 @@
                     this.html5QrcodeScanner.start({ facingMode: "environment" }, config, (decodedText) => {
                         this.playBeep();
                         this.triggerConfirm(decodedText);
+                    }).then(() => {
+                        const readerDiv = document.getElementById("reader");
+                        if (readerDiv) {
+                            readerDiv.addEventListener('touchstart', this.focusCamera, { passive: true });
+                        }
                     }).catch(err => {
                         alert("無法啟動相機: " + err);
                         this.isScanning = false;
@@ -783,6 +900,11 @@
             stopScanner() {
                 if (this.html5QrcodeScanner) {
                     this.html5QrcodeScanner.stop().then(() => {
+                        const readerDiv = document.getElementById("reader");
+                        if (readerDiv) {
+                            readerDiv.removeEventListener('touchstart', this.focusCamera);
+                        }
+                        
                         this.html5QrcodeScanner.clear();
                         this.html5QrcodeScanner = null;
                         this.isScanning = false;
@@ -895,8 +1017,7 @@
             cancelScan() { 
                 this.pendingScan = null; 
                 this.isBindingMode = false;
-                // NEW: 清除上次掃描的高亮
-                this.lastScanHighlight = { code: null, qty: 0 };
+                this.lastScannedItem = null;
             },
             confirmScan() {
                 if (!this.pendingScan) return;
@@ -909,13 +1030,14 @@
                     sku: this.pendingScan.sku,
                     qty: this.pendingScan.qty,
                     time: timeStr,
-                    timestamp: now.getTime() // 紀錄掃描時間戳
+                    timestamp: now.getTime() 
                 });
                 localStorage.setItem('inventory_records', JSON.stringify(this.records));
                 
-                // NEW: 高亮顯示本次盤點量
-                this.lastScanHighlight = {
+                this.lastScannedItem = {
                     code: this.pendingScan.code,
+                    name: this.pendingScan.name,
+                    sku: this.pendingScan.sku,
                     qty: this.pendingScan.qty
                 };
                 

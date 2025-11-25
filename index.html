@@ -134,6 +134,13 @@
         .bg-match { background-color: #E8F5E9; color: #2E7D32; }
         .bg-shortage { background-color: #FFEBEE; color: #C62828; }
         .bg-surplus { background-color: #E3F2FD; color: #1565C0; }
+        
+        /* NEW: Visual cue for the item that was just scanned */
+        .highlight-current-scan {
+            font-weight: 700;
+            color: var(--primary-color);
+            background-color: #e3f2fd50;
+        }
 
         .suggestion-list {
             position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
@@ -395,7 +402,8 @@
                     <table class="table table-inventory mb-0">
                         <thead>
                             <tr>
-                                <th style="width: 50%">SKU / 品名 (型號)</th>
+                                <th style="width: 40%">SKU / 品名 (型號)</th>
+                                <th class="text-center" style="width: 10%">本次量</th> <!-- NEW COLUMN: 本次量 -->
                                 <th class="text-center" style="width: 15%">實/應</th>
                                 <th class="text-center" style="width: 10%">差</th>
                                 <th style="width: 25%">備註</th>
@@ -403,13 +411,19 @@
                         </thead>
                         <tbody>
                             <tr v-if="inventorySummary.length === 0">
-                                <td colspan="4" class="text-center py-5 text-muted">資料庫為空，請先進行設定</td>
+                                <td colspan="5" class="text-center py-5 text-muted">資料庫為空，請先進行設定</td>
                             </tr>
                             <tr v-for="item in inventorySummary" :key="item.code" :class="getStatusClass(item)">
                                 <td>
                                     <div class="model-name">{{ item.name }}</div>
                                     <div class="model-sub">
                                         <span class="me-2 text-accent fw-bold">{{ item.sku }}</span>
+                                    </div>
+                                </td>
+                                <!-- NEW COLUMN DATA: 本次量 -->
+                                <td class="text-center">
+                                    <div class="fs-6 fw-bold" :class="{'highlight-current-scan': item.currentScanQty !== null}">
+                                        {{ item.currentScanQty !== null ? item.currentScanQty : '-' }}
                                     </div>
                                 </td>
                                 <td class="text-center">
@@ -439,7 +453,8 @@
             <table class="table table-inventory mb-0">
                 <thead>
                     <tr>
-                        <th style="width: 60%">SKU / 品名 (型號)</th>
+                        <th style="width: 50%">SKU / 品名 (型號)</th>
+                        <th class="text-center" style="width: 10%">本次量</th> <!-- NEW COLUMN: 本次量 -->
                         <th class="text-center" style="width: 12%">實 / 應</th>
                         <th class="text-center" style="width: 8%">差</th>
                         <th style="width: 20%">備註</th>
@@ -451,6 +466,10 @@
                             <!-- 強制單行：SKU 粗體 + 品名 -->
                             <span class="model-sub">{{ item.sku }}</span>
                             <span class="model-name">{{ item.name }}</span>
+                        </td>
+                         <!-- NEW COLUMN DATA: 本次量 (PDF) -->
+                        <td class="text-center">
+                            <span style="font-size: 8pt; font-weight: 500;">{{ item.currentScanQty !== null ? item.currentScanQty : '-' }}</span>
                         </td>
                         <td class="text-center fw-bold">
                             {{ item.scanned }} / {{ item.expected }}
@@ -630,14 +649,15 @@
                 bindSearchInput: '',
                 bindSuggestions: [],
 
-                printTime: ''
+                printTime: '',
+                lastScanHighlight: { code: null, qty: 0 } // NEW: 追蹤上次掃描的量
             }
         },
         computed: {
             inventorySummary() {
                 const summary = {};
                 for (const [code, item] of Object.entries(this.productDb)) {
-                    summary[code] = { code, ...item, scanned: 0 };
+                    summary[code] = { code, ...item, scanned: 0, lastScanTime: 0 };
                 }
                 this.records.forEach(record => {
                     let targetCode = record.code;
@@ -647,22 +667,30 @@
                             name: record.name, 
                             sku: record.sku || targetCode, 
                             expected: 0, 
-                            scanned: 0 
+                            scanned: 0,
+                            lastScanTime: 0 
                         };
                     }
                     summary[targetCode].scanned += record.qty;
+                    summary[targetCode].lastScanTime = Math.max(summary[targetCode].lastScanTime, record.timestamp || 0);
                 });
                 
                 return Object.values(summary).map(item => {
                     item.diff = item.scanned - item.expected;
                     if (this.remarkDb[item.code] === undefined) this.remarkDb[item.code] = '';
+                    
+                    // NEW: 加入本次盤點量 (僅用於高亮顯示)
+                    item.currentScanQty = (this.lastScanHighlight && item.code === this.lastScanHighlight.code) 
+                        ? this.lastScanHighlight.qty 
+                        : null;
+                    
                     return item;
                 }).sort((a, b) => {
-                    // 螢幕排序邏輯修正：盤虧 -> 盤盈 -> 相符
+                    // 1. 主排序：差異狀態 (盤虧:1 -> 盤盈:2 -> 相符:3)
                     const getPriority = (diff) => {
-                        if (diff < 0) return 1; // 盤虧 (Loss/Shortage)
-                        if (diff > 0) return 2; // 盤盈 (Gain/Surplus)
-                        return 3; // 相符/未盤 (Match/Unscanned)
+                        if (diff < 0) return 1; 
+                        if (diff > 0) return 2; 
+                        return 3; 
                     };
 
                     const pA = getPriority(a.diff);
@@ -670,7 +698,12 @@
                     
                     if (pA !== pB) return pA - pB;
                     
-                    // 次要排序：依 SKU 排序
+                    // 2. 次級排序：時間 (由新到舊 - 倒序)
+                    if (a.lastScanTime !== b.lastScanTime) {
+                        return b.lastScanTime - a.lastScanTime; 
+                    }
+                    
+                    // 3. 末級排序：依 SKU (輔助)
                     return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
                 });
             },
@@ -684,7 +717,7 @@
                 return { shortage, surplus, match };
             },
             inventorySummaryForPrint() {
-                // PDF 專用：依 SKU 排序
+                // PDF 專用：只依 SKU 排序
                 return [...this.inventorySummary].sort((a, b) => {
                     return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
                 });
@@ -859,19 +892,33 @@
                 const newQty = parseInt(this.pendingScan.qty) + val;
                 if (newQty >= 1) this.pendingScan.qty = newQty;
             },
-            cancelScan() { this.pendingScan = null; this.isBindingMode = false; },
+            cancelScan() { 
+                this.pendingScan = null; 
+                this.isBindingMode = false;
+                // NEW: 清除上次掃描的高亮
+                this.lastScanHighlight = { code: null, qty: 0 };
+            },
             confirmScan() {
                 if (!this.pendingScan) return;
                 const now = new Date();
                 const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+                
                 this.records.unshift({
                     code: this.pendingScan.code,
                     name: this.pendingScan.name,
                     sku: this.pendingScan.sku,
                     qty: this.pendingScan.qty,
-                    time: timeStr
+                    time: timeStr,
+                    timestamp: now.getTime() // 紀錄掃描時間戳
                 });
                 localStorage.setItem('inventory_records', JSON.stringify(this.records));
+                
+                // NEW: 高亮顯示本次盤點量
+                this.lastScanHighlight = {
+                    code: this.pendingScan.code,
+                    qty: this.pendingScan.qty
+                };
+                
                 this.pendingScan = null;
                 this.isBindingMode = false;
             },

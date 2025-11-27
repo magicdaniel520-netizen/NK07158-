@@ -650,8 +650,8 @@
             
              <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                 <small class="text-muted">目前資料: {{ Object.keys(productDb).length }} 筆</small>
-                <!-- NEW: 儲存並關閉 -->
-                <button @click="saveProductDbAndClose" class="btn btn-success px-4" :disabled="isUrlLocked">儲存設定</button>
+                <!-- NEW: 移除 disabled 限制，點擊後儲存並關閉 -->
+                <button @click="saveProductDbAndClose" class="btn btn-success px-4">儲存設定</button>
             </div>
         </div>
     </div>
@@ -671,6 +671,7 @@
                     <li>1. 智能網址修復：針對網址過長或含有特殊符號的 Google Sheet 連結進行自動修復，提升資料同步成功率。</li>
                     <li>2. 門市參數支援：支援透過 URL 參數 (store_name, db_url) 自動載入不同門市的設定與名稱。</li>
                     <li>3. 錯誤處理優化：當讀取到錯誤格式時，提供更明確的引導訊息。</li>
+                    <li>4. 系統設定優化：修復了設定視窗在鎖定狀態下無法關閉的問題。</li>
                 </ol>
             </div>
             
@@ -947,16 +948,13 @@
                 const cleanInput = input.trim();
                 const normInput = this.normalizeStr(cleanInput);
 
-                // 0. 檢查綁定表 (Binding DB)
                 if (this.barcodeBindingDb[normInput]) {
                     const targetCode = this.barcodeBindingDb[normInput];
                     if (this.productDb[targetCode]) return { code: targetCode, ...this.productDb[targetCode] };
                 }
 
-                // 1. 比對 Barcode Key
                 if (this.productDb[cleanInput]) return { code: cleanInput, ...this.productDb[cleanInput] };
 
-                // 2. 模糊比對 (SKU, Name)
                 for (const [code, item] of Object.entries(this.productDb)) {
                     if (this.normalizeStr(item.sku) === normInput) return { code, ...item };
                     if (this.normalizeStr(item.name) === normInput) return { code, ...item };

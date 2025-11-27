@@ -195,7 +195,7 @@
         #print-footer { display: none; }
 
         @media print {
-            /* 強制背景色與圖形，確保紅/藍底色能印出來 */
+            /* 強制背景色與圖形 */
             body { 
                 background-color: white; 
                 -webkit-print-color-adjust: exact !important; 
@@ -213,7 +213,7 @@
             /* 隱藏螢幕版表格 */
             .screen-only-table { display: none !important; }
             
-            /* 顯示並重設列印版表格的容器屬性，解除所有捲動限制 */
+            /* 顯示並重設列印版表格的容器屬性 */
             .print-only-table { 
                 display: block !important; 
                 overflow: visible !important; 
@@ -247,13 +247,13 @@
                 table-layout: fixed; 
             }
             
-            /* 標題列重複設定 - 核心修正 */
+            /* 標題列重複設定 */
             thead { 
                 display: table-header-group; 
             }
             
             tr { 
-                page-break-inside: avoid; /* 避免行被切斷 - 關鍵 */
+                page-break-inside: avoid; /* 避免行被切斷 */
                 display: table-row !important; 
             }
             
@@ -275,7 +275,7 @@
                 line-height: 1.2; 
             }
             
-            /* 單行呈現設定 (SKU + Name) */
+            /* 單行呈現設定 */
             .model-name, .model-sub { 
                 font-size: 8pt; 
                 margin: 0;
@@ -317,7 +317,6 @@
             .print-time { font-family: monospace; }
             .print-sign { min-width: 150px; border-bottom: 1px solid #000; text-align: center; }
             
-            /* 隱藏差異徽章背景，改純文字 */
             .diff-badge { 
                 border: none; 
                 padding: 0; 
@@ -337,16 +336,15 @@
     <div class="app-header d-flex justify-content-between align-items-center">
         <div class="app-title d-flex align-items-center">
             <span class="text-accent me-2">■</span>{{ appTitle }}
-            <!-- NEW: 版本號與資訊按鈕 -->
+            <!-- 版本號與資訊按鈕 -->
             <small class="text-muted ms-2 fw-normal no-print" style="font-size: 0.8rem;">v{{ APP_VERSION }}</small>
             <button @click="showReleaseNotesModal = true" class="btn btn-sm btn-outline-secondary ms-2 p-1" style="border-radius: 50%;">
                 <i class="bi bi-info-circle" style="font-size: 1.1rem;"></i>
             </button>
         </div>
-        <!-- Removed original setting button -->
     </div>
     
-    <!-- NEW: 匯入盤點資料按鈕 (Below header) -->
+    <!-- 頂端按鈕區 (列印時隱藏) -->
     <div class="d-flex justify-content-between align-items-center mb-3 no-print top-controls">
         <button @click="openSettings" class="btn btn-sm btn-outline-secondary rounded-1 flex-grow-1 me-2">
             <i class="bi bi-cloud-arrow-down me-1"></i>匯入盤點資料
@@ -355,12 +353,11 @@
             <i class="bi bi-file-earmark-pdf me-1"></i>結束盤點 (PDF)
         </button>
     </div>
-    <!-- Removed CSV button and moved button group logic here -->
 
     <!-- 掃描控制區 (列印時隱藏) -->
     <div class="main-card no-print">
         <div class="camera-container" v-show="isScanning">
-            <div id="reader" @touchstart.prevent="focusCamera"></div> <!-- 添加觸控對焦事件 -->
+            <div id="reader" @touchstart.prevent="focusCamera"></div> <!-- 觸控對焦 -->
         </div>
 
         <div v-if="!isScanning">
@@ -408,7 +405,7 @@
     <!-- 盤點差異表 (螢幕版 - 依差異排序) -->
     <div v-show="currentTab === 'diff'">
         
-        <!-- NEW: 上次掃描資訊卡 (本次量) - 包含備註輸入 -->
+        <!-- 上次掃描資訊卡 -->
         <div v-if="lastScannedItem" class="last-scan-info no-print">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <div class="fw-bold">
@@ -423,7 +420,6 @@
                 </div>
             </div>
             
-            <!-- NEW: 備註輸入欄位 -->
             <div class="input-group mt-2">
                 <input class="form-control form-control-sm" 
                        list="remarkOptions" 
@@ -440,7 +436,7 @@
             <span><span class="text-success">●</span> 符: {{ countStats.match }}</span>
         </div>
         
-        <!-- NEW: 專屬差異表篩選器 -->
+        <!-- 專屬差異表篩選器 -->
         <div class="input-group mb-3 no-print">
             <span class="input-group-text" style="border-radius: var(--border-radius) 0 0 var(--border-radius); border-right: none;">
                 <i class="bi bi-filter"></i>
@@ -482,7 +478,6 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <!-- 備註輸入框 - 保持與主表格的互動 -->
                                     <input class="form-control form-control-sm border-0" style="background: transparent; border-bottom: 1px dashed #ccc !important; border-radius: 0;" list="remarkOptions" v-model="remarkDb[item.code]" @change="persistRemarks" placeholder="輸入...">
                                 </td>
                             </tr>
@@ -495,7 +490,6 @@
 
     <!-- 盤點差異表 (列印版 - 依 SKU 排序 - 強制單行顯示) -->
     <div class="main-card p-0 print-only-table d-none" style="border:none; background: transparent;">
-        <!-- 移除 table-responsive 與 overflow-hidden，這是讓標題重複的關鍵 -->
         <div class="bg-white main-table-container">
             <table class="table table-inventory mb-0">
                 <thead>
@@ -509,7 +503,6 @@
                 <tbody>
                     <tr v-for="item in inventorySummaryForPrint" :key="item.code" :class="getStatusClass(item)">
                         <td>
-                            <!-- 強制單行：SKU 粗體 + 品名 -->
                             <span class="model-sub">{{ item.sku }}</span>
                             <span class="model-name">{{ item.name }}</span>
                         </td>
@@ -672,13 +665,12 @@
             </div>
             
             <div class="mb-4" style="max-height: 400px; overflow-y: auto;">
-                <p class="fw-bold text-accent">更新時間：2025/11/25 23:35 CST</p>
-                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.1) 重大更新：</p>
+                <p class="fw-bold text-accent">更新時間：2025/11/27 14:26 CST</p>
+                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.3) 更新：</p>
                 <ol class="small" style="padding-left: 20px;">
-                    <li>1. 流程優化：新增獨立的「上次盤點資訊卡」，讓您在掃描後能直接在資訊卡下方輸入備註。</li>
-                    <li>2. 掃描效率：新增「觸控對焦」功能，在相機畫面輕點即可嘗試強制對焦，解決近距離條碼模糊問題。</li>
-                    <li>3. 數據篩選：盤點差異表新增篩選/查找功能，可即時按 SKU/品名/備註查找資料。</li>
-                    <li>4. 頁面樣式調整：對應用程式的視覺風格進行了微調，以符合更簡約、無印風格的設計。</li>
+                    <li>1. 智能網址修復：針對網址過長或含有特殊符號的 Google Sheet 連結進行自動修復，提升資料同步成功率。</li>
+                    <li>2. 門市參數支援：支援透過 URL 參數 (store_name, db_url) 自動載入不同門市的設定與名稱。</li>
+                    <li>3. 錯誤處理優化：當讀取到錯誤格式時，提供更明確的引導訊息。</li>
                 </ol>
             </div>
             
@@ -696,7 +688,7 @@
     createApp({
         data() {
             return {
-                APP_VERSION: 'DD1.0.1', // NEW
+                APP_VERSION: 'DD1.0.3', // Updated Version
                 currentTab: 'diff',
                 isScanning: false,
                 html5QrcodeScanner: null,
@@ -709,7 +701,7 @@
                 barcodeBindingDb: {}, 
 
                 showDbModal: false,
-                showReleaseNotesModal: false, // NEW
+                showReleaseNotesModal: false, 
                 dbInputText: '',
                 googleSheetUrl: '', // NEW: 初始設定為空
                 isSyncing: false,
@@ -722,8 +714,8 @@
                 bindSuggestions: [],
 
                 printTime: '',
-                lastScannedItem: null, // 追蹤上次掃描的完整資訊
-                filterSearchInput: '', // 差異表篩選輸入
+                lastScannedItem: null, 
+                filterSearchInput: '', 
                 
                 // NEW: 門市名稱與網址鎖定狀態
                 storeName: '永華DC盤點系統', 
@@ -820,18 +812,31 @@
             // NEW: 優先處理 URL 參數
             const urlParams = new URLSearchParams(window.location.search);
             const urlStoreName = urlParams.get('store_name');
-            const urlDbUrl = urlParams.get('db_url');
+            let urlDbUrl = urlParams.get('db_url');
 
             if (urlStoreName) {
                 this.storeName = decodeURIComponent(urlStoreName);
             }
             
             if (urlDbUrl) {
+                // vDD1.0.3: 自動修復被 & 截斷的 Google Sheet URL
+                const lostParams = ['gid', 'single', 'output', 'range'];
+                lostParams.forEach(param => {
+                    if (urlParams.has(param)) {
+                        const val = urlParams.get(param);
+                        // 避免重複添加 (如果原本就有)
+                        if (!urlDbUrl.includes(param + '=')) {
+                            // 補回被 URLSearchParams 誤切的參數
+                            // 注意：這裡用 & 連接，因為它們本來屬於 db_url 的 query string
+                            urlDbUrl += `&${param}=${val}`;
+                        }
+                    }
+                });
+
                 this.googleSheetUrl = decodeURIComponent(urlDbUrl);
-                this.isUrlLocked = true; // 鎖定網址，防止用戶修改
-                this.syncGoogleSheet(); // 收到 URL 後立即嘗試同步
+                this.isUrlLocked = true; 
+                this.syncGoogleSheet(); 
             } else {
-                // 如果沒有 URL 參數，則從 LocalStorage 載入上次使用的 URL
                 const savedUrl = localStorage.getItem('inventory_sheet_url_updated');
                 if (savedUrl) this.googleSheetUrl = savedUrl;
             }
@@ -860,8 +865,6 @@
             
             const savedBindings = localStorage.getItem('inventory_bindings');
             if (savedBindings) this.barcodeBindingDb = JSON.parse(savedBindings);
-            
-            
         },
         methods: {
             openSettings() {
@@ -1079,28 +1082,44 @@
                 }
             },
             async syncGoogleSheet() {
-                if (this.isUrlLocked) {
-                    // 如果網址被鎖定，也需要在同步成功後，將網址儲存到 LocalStorage
-                    localStorage.setItem('inventory_sheet_url_updated', this.googleSheetUrl);
+                // 1. 清理網址空格
+                const url = this.googleSheetUrl.trim();
+                if (!url) return alert('請輸入網址');
+
+                // 2. 簡易網址檢查 (提示而非阻擋)
+                if (!url.includes('output=csv')) {
+                    if(!confirm("警告：這個網址看起來不像 CSV 連結 (缺少 output=csv)。\n這可能會導致讀取失敗。\n\n您確定要繼續嗎？")) return;
                 }
+
+                if (this.isUrlLocked) {
+                    localStorage.setItem('inventory_sheet_url_updated', url);
+                }
+                
                 this.isSyncing = true;
                 try {
-                    const res = await fetch(this.googleSheetUrl);
-                    if (!res.ok) throw new Error("Network response was not ok");
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error(`連線錯誤 (${res.status})`);
                     
-                    // Check content type if possible, or just inspect text
                     const text = await res.text();
 
-                    // Validation: Check if response is HTML
-                    if (text.trim().startsWith('<')) {
-                        throw new Error("讀取到的不是 CSV 格式，而是網頁 HTML。\n請確認您使用的是「發布到網路 -> CSV」的連結，而非網頁瀏覽連結。");
+                    // 3. 嚴格檢查回傳內容是否為 HTML
+                    if (text.trim().substring(0, 15).toLowerCase().startsWith('<!doctype') || 
+                        text.trim().substring(0, 15).toLowerCase().startsWith('<html')) {
+                        
+                        throw new Error(
+                            "同步失敗：讀取到的是「網頁 (HTML)」而不是「資料 (CSV)」。\n\n" +
+                            "可能原因：\n" +
+                            "1. 這是「編輯網址」而非「發布網址」。\n" +
+                            "2. 試算表權限未公開 (需設為：知道連結者皆可檢視)。\n" +
+                            "3. 發布設定中的「格式」未選擇 CSV。"
+                        );
                     }
 
                     this.dbInputText = text;
                     this.saveProductDb(true);
                     
                 } catch (e) { 
-                    alert("同步失敗：\n" + e.message); 
+                    alert(e.message); 
                 } 
                 finally { this.isSyncing = false; }
             },

@@ -336,7 +336,7 @@
     <!-- 標題 -->
     <div class="app-header d-flex justify-content-between align-items-center">
         <div class="app-title d-flex align-items-center">
-            <span class="text-accent me-2">■</span>永華DC盤點系統
+            <span class="text-accent me-2">■</span>{{ appTitle }}
             <!-- NEW: 版本號與資訊按鈕 -->
             <small class="text-muted ms-2 fw-normal no-print" style="font-size: 0.8rem;">v{{ APP_VERSION }}</small>
             <button @click="showReleaseNotesModal = true" class="btn btn-sm btn-outline-secondary ms-2 p-1" style="border-radius: 50%;">
@@ -639,13 +639,15 @@
             
             <div class="mb-4">
                 <label class="form-label fw-bold small text-muted">Google 試算表同步 (CSV 網址)</label>
+                <!-- NEW: 鎖定網址的狀態 -->
                 <div class="input-group">
-                    <input type="text" v-model="googleSheetUrl" class="form-control" placeholder="https://...">
+                    <input type="text" v-model="googleSheetUrl" class="form-control" placeholder="https://..." :readonly="isUrlLocked">
                     <button @click="syncGoogleSheet" class="btn btn-primary" :disabled="isSyncing">
                         {{ isSyncing ? '同步中...' : '同步' }}
                     </button>
                 </div>
-                <div class="form-text small">格式：SKU, 品名, 型號, 應盤數量</div>
+                <div v-if="isUrlLocked" class="form-text text-danger small">網址已由 URL 參數鎖定，請勿手動修改。</div>
+                <div v-else class="form-text small">格式：SKU, 品名, 型號, 應盤數量</div>
             </div>
 
             <div class="mb-4">
@@ -655,8 +657,8 @@
             
              <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                 <small class="text-muted">目前資料: {{ Object.keys(productDb).length }} 筆</small>
-                <!-- UPDATED: 點擊後儲存並關閉 -->
-                <button @click="saveProductDbAndClose" class="btn btn-success px-4">儲存設定</button>
+                <!-- NEW: 儲存並關閉 -->
+                <button @click="saveProductDbAndClose" class="btn btn-success px-4" :disabled="isUrlLocked">儲存設定</button>
             </div>
         </div>
     </div>
@@ -694,7 +696,7 @@
     createApp({
         data() {
             return {
-                APP_VERSION: 'DD1.0.1', // NEW
+                APP_VERSION: 'DD1.0.1', 
                 currentTab: 'diff',
                 isScanning: false,
                 html5QrcodeScanner: null,
@@ -707,9 +709,9 @@
                 barcodeBindingDb: {}, 
 
                 showDbModal: false,
-                showReleaseNotesModal: false, // NEW
+                showReleaseNotesModal: false, 
                 dbInputText: '',
-                googleSheetUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSUp0A0KtvbJvfkWPVXKAA_gBMgUXAff_rNAwKnl3jYiVpFLegSHbL5TX48b68XOlUaOki45TrXQPL_/pub?gid=0&single=true&output=csv',
+                googleSheetUrl: '', // NEW: 初始設定為空
                 isSyncing: false,
 
                 pendingScan: null,
@@ -720,11 +722,19 @@
                 bindSuggestions: [],
 
                 printTime: '',
-                lastScannedItem: null, // 追蹤上次掃描的完整資訊
-                filterSearchInput: '' // 差異表篩選輸入
+                lastScannedItem: null, 
+                filterSearchInput: '', 
+                
+                // NEW: 門市名稱與網址鎖定狀態
+                storeName: '永華DC盤點系統', 
+                isUrlLocked: false
             }
         },
         computed: {
+            appTitle() {
+                // 動態標題
+                return this.storeName + ' 盤點系統';
+            },
             inventorySummary() {
                 const summary = {};
                 for (const [code, item] of Object.entries(this.productDb)) {
@@ -807,6 +817,26 @@
             }
         },
         mounted() {
+            // NEW: 優先處理 URL 參數
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlStoreName = urlParams.get('store_name');
+            const urlDbUrl = urlParams.get('db_url');
+
+            if (urlStoreName) {
+                this.storeName = decodeURIComponent(urlStoreName);
+            }
+            
+            if (urlDbUrl) {
+                this.googleSheetUrl = decodeURIComponent(urlDbUrl);
+                this.isUrlLocked = true; // 鎖定網址，防止用戶修改
+                this.syncGoogleSheet(); // 收到 URL 後立即嘗試同步
+            } else {
+                // 如果沒有 URL 參數，則從 LocalStorage 載入上次使用的 URL
+                const savedUrl = localStorage.getItem('inventory_sheet_url_updated');
+                if (savedUrl) this.googleSheetUrl = savedUrl;
+            }
+
+
             const savedRecords = localStorage.getItem('inventory_records');
             if (savedRecords) this.records = JSON.parse(savedRecords);
             
@@ -831,15 +861,13 @@
             const savedBindings = localStorage.getItem('inventory_bindings');
             if (savedBindings) this.barcodeBindingDb = JSON.parse(savedBindings);
             
-            const savedUrl = localStorage.getItem('inventory_sheet_url_updated');
-            if (savedUrl) this.googleSheetUrl = savedUrl;
+            
         },
         methods: {
             openSettings() {
                 this.showDbModal = true;
             },
 
-            // NEW: 觸控對焦功能
             focusCamera(event) {
                 if (!this.isScanning || !this.html5QrcodeScanner) return;
                 
@@ -915,13 +943,16 @@
                 const cleanInput = input.trim();
                 const normInput = this.normalizeStr(cleanInput);
 
+                // 0. 檢查綁定表 (Binding DB)
                 if (this.barcodeBindingDb[normInput]) {
                     const targetCode = this.barcodeBindingDb[normInput];
                     if (this.productDb[targetCode]) return { code: targetCode, ...this.productDb[targetCode] };
                 }
 
+                // 1. 比對 Barcode Key
                 if (this.productDb[cleanInput]) return { code: cleanInput, ...this.productDb[cleanInput] };
 
+                // 2. 模糊比對 (SKU, Name)
                 for (const [code, item] of Object.entries(this.productDb)) {
                     if (this.normalizeStr(item.sku) === normInput) return { code, ...item };
                     if (this.normalizeStr(item.name) === normInput) return { code, ...item };
@@ -1047,13 +1078,17 @@
                 }
             },
             async syncGoogleSheet() {
+                if (this.isUrlLocked) {
+                    // 如果網址被鎖定，也需要在同步成功後，將網址儲存到 LocalStorage
+                    localStorage.setItem('inventory_sheet_url_updated', this.googleSheetUrl);
+                }
                 this.isSyncing = true;
                 try {
                     const res = await fetch(this.googleSheetUrl);
                     if (!res.ok) throw new Error("Network response was not ok");
                     this.dbInputText = await res.text();
                     this.saveProductDb(true);
-                    localStorage.setItem('inventory_sheet_url_updated', this.googleSheetUrl);
+                    
                 } catch (e) { alert("同步失敗"); } 
                 finally { this.isSyncing = false; }
             },
@@ -1086,17 +1121,19 @@
                 });
                 this.productDb = newDb;
                 localStorage.setItem('inventory_db_v4', JSON.stringify(newDb));
-                // NEW: 如果是手動儲存 (非同步)，則關閉視窗
+                
                 if(!isFromSync) { 
-                    this.showDbModal = false; 
+                    // 只有手動儲存時才儲存網址 (同步已經處理)
+                    if (!this.isUrlLocked) {
+                        localStorage.setItem('inventory_sheet_url_updated', this.googleSheetUrl);
+                    }
                     alert(`儲存成功，共 ${count} 筆`); 
                 }
                 else alert(`同步成功，共 ${count} 筆`);
             },
-            // NEW: 儲存設定並關閉視窗的輔助函數 (對應按鈕)
             saveProductDbAndClose() {
-                // 執行儲存，isFromSync 傳入 false 讓它觸發自動關閉
-                this.saveProductDb(false); 
+                this.saveProductDb(false); // 執行儲存
+                this.showDbModal = false; // 直接關閉
             },
             downloadSummaryCSV() {
                 let csv = "\uFEFFSKU,品名,應盤,實盤,差異,備註\n";

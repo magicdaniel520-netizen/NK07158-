@@ -696,7 +696,7 @@
     createApp({
         data() {
             return {
-                APP_VERSION: 'DD1.0.1', 
+                APP_VERSION: 'DD1.0.1', // NEW
                 currentTab: 'diff',
                 isScanning: false,
                 html5QrcodeScanner: null,
@@ -709,7 +709,7 @@
                 barcodeBindingDb: {}, 
 
                 showDbModal: false,
-                showReleaseNotesModal: false, 
+                showReleaseNotesModal: false, // NEW
                 dbInputText: '',
                 googleSheetUrl: '', // NEW: 初始設定為空
                 isSyncing: false,
@@ -722,8 +722,8 @@
                 bindSuggestions: [],
 
                 printTime: '',
-                lastScannedItem: null, 
-                filterSearchInput: '', 
+                lastScannedItem: null, // 追蹤上次掃描的完整資訊
+                filterSearchInput: '', // 差異表篩選輸入
                 
                 // NEW: 門市名稱與網址鎖定狀態
                 storeName: '永華DC盤點系統', 
@@ -868,6 +868,7 @@
                 this.showDbModal = true;
             },
 
+            // NEW: 觸控對焦功能
             focusCamera(event) {
                 if (!this.isScanning || !this.html5QrcodeScanner) return;
                 
@@ -1086,10 +1087,21 @@
                 try {
                     const res = await fetch(this.googleSheetUrl);
                     if (!res.ok) throw new Error("Network response was not ok");
-                    this.dbInputText = await res.text();
+                    
+                    // Check content type if possible, or just inspect text
+                    const text = await res.text();
+
+                    // Validation: Check if response is HTML
+                    if (text.trim().startsWith('<')) {
+                        throw new Error("讀取到的不是 CSV 格式，而是網頁 HTML。\n請確認您使用的是「發布到網路 -> CSV」的連結，而非網頁瀏覽連結。");
+                    }
+
+                    this.dbInputText = text;
                     this.saveProductDb(true);
                     
-                } catch (e) { alert("同步失敗"); } 
+                } catch (e) { 
+                    alert("同步失敗：\n" + e.message); 
+                } 
                 finally { this.isSyncing = false; }
             },
             saveProductDb(isFromSync = false) {

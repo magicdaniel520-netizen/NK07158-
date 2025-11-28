@@ -195,7 +195,7 @@
         #print-footer { display: none; }
 
         @media print {
-            /* 強制背景色與圖形 */
+            /* 強制背景色與圖形，確保紅/藍底色能印出來 */
             body { 
                 background-color: white; 
                 -webkit-print-color-adjust: exact !important; 
@@ -213,7 +213,7 @@
             /* 隱藏螢幕版表格 */
             .screen-only-table { display: none !important; }
             
-            /* 顯示並重設列印版表格的容器屬性 */
+            /* 顯示並重設列印版表格的容器屬性，解除所有捲動限制 */
             .print-only-table { 
                 display: block !important; 
                 overflow: visible !important; 
@@ -247,13 +247,13 @@
                 table-layout: fixed; 
             }
             
-            /* 標題列重複設定 */
+            /* 標題列重複設定 - 核心修正 */
             thead { 
                 display: table-header-group; 
             }
             
             tr { 
-                page-break-inside: avoid; /* 避免行被切斷 */
+                page-break-inside: avoid; /* 避免行被切斷 - 關鍵 */
                 display: table-row !important; 
             }
             
@@ -275,7 +275,7 @@
                 line-height: 1.2; 
             }
             
-            /* 單行呈現設定 */
+            /* 單行呈現設定 (SKU + Name) */
             .model-name, .model-sub { 
                 font-size: 8pt; 
                 margin: 0;
@@ -317,6 +317,7 @@
             .print-time { font-family: monospace; }
             .print-sign { min-width: 150px; border-bottom: 1px solid #000; text-align: center; }
             
+            /* 隱藏差異徽章背景，改純文字 */
             .diff-badge { 
                 border: none; 
                 padding: 0; 
@@ -478,6 +479,7 @@
                                     </span>
                                 </td>
                                 <td>
+                                    <!-- 備註輸入框 - 保持與主表格的互動 -->
                                     <input class="form-control form-control-sm border-0" style="background: transparent; border-bottom: 1px dashed #ccc !important; border-radius: 0;" list="remarkOptions" v-model="remarkDb[item.code]" @change="persistRemarks" placeholder="輸入...">
                                 </td>
                             </tr>
@@ -650,7 +652,7 @@
             
              <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                 <small class="text-muted">目前資料: {{ Object.keys(productDb).length }} 筆</small>
-                <!-- NEW: 移除 disabled 限制，點擊後儲存並關閉 -->
+                <!-- NEW: 儲存並關閉，無 disabled 限制 -->
                 <button @click="saveProductDbAndClose" class="btn btn-success px-4">儲存設定</button>
             </div>
         </div>
@@ -665,13 +667,10 @@
             </div>
             
             <div class="mb-4" style="max-height: 400px; overflow-y: auto;">
-                <p class="fw-bold text-accent">更新時間：2025/11/27 14:26 CST</p>
-                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.3) 更新：</p>
+                <p class="fw-bold text-accent">更新時間：2025/11/28 23:30 CST</p>
+                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.4) 更新：</p>
                 <ol class="small" style="padding-left: 20px;">
-                    <li>1. 智能網址修復：針對網址過長或含有特殊符號的 Google Sheet 連結進行自動修復，提升資料同步成功率。</li>
-                    <li>2. 門市參數支援：支援透過 URL 參數 (store_name, db_url) 自動載入不同門市的設定與名稱。</li>
-                    <li>3. 錯誤處理優化：當讀取到錯誤格式時，提供更明確的引導訊息。</li>
-                    <li>4. 系統設定優化：修復了設定視窗在鎖定狀態下無法關閉的問題。</li>
+                    <li>1. 取消自動同步：開啟含有資料庫連結的網址時，不再自動同步資料庫，避免重新整理頁面時意外覆蓋當前盤點設定。需手動進入「匯入盤點資料」點擊同步。</li>
                 </ol>
             </div>
             
@@ -689,7 +688,7 @@
     createApp({
         data() {
             return {
-                APP_VERSION: 'DD1.0.3', // Updated Version
+                APP_VERSION: 'DD1.0.4', // Updated Version
                 currentTab: 'diff',
                 isScanning: false,
                 html5QrcodeScanner: null,
@@ -836,7 +835,8 @@
 
                 this.googleSheetUrl = decodeURIComponent(urlDbUrl);
                 this.isUrlLocked = true; 
-                this.syncGoogleSheet(); 
+                // vDD1.0.4: 取消自動同步
+                // this.syncGoogleSheet(); 
             } else {
                 const savedUrl = localStorage.getItem('inventory_sheet_url_updated');
                 if (savedUrl) this.googleSheetUrl = savedUrl;

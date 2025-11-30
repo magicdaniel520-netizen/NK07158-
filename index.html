@@ -479,7 +479,6 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <!-- 備註輸入框 - 保持與主表格的互動 -->
                                     <input class="form-control form-control-sm border-0" style="background: transparent; border-bottom: 1px dashed #ccc !important; border-radius: 0;" list="remarkOptions" v-model="remarkDb[item.code]" @change="persistRemarks" placeholder="輸入...">
                                 </td>
                             </tr>
@@ -610,7 +609,8 @@
                 <div class="py-2 mb-4 text-center border-top border-bottom">
                     <div class="d-flex align-items-center justify-content-center gap-3">
                         <button class="btn btn-outline-secondary rounded-circle p-0" style="width: 40px; height: 40px;" @click="adjustPendingQty(-1)"><i class="bi bi-dash"></i></button>
-                        <input type="number" v-model="pendingScan.qty" class="big-qty-input" ref="qtyInput">
+                        <!-- NEW: inputmode="numeric" added here -->
+                        <input type="number" v-model="pendingScan.qty" class="big-qty-input" ref="qtyInput" inputmode="numeric">
                         <button class="btn btn-outline-secondary rounded-circle p-0" style="width: 40px; height: 40px;" @click="adjustPendingQty(1)"><i class="bi bi-plus"></i></button>
                     </div>
                     <div class="text-muted small mt-1">盤點數量</div>
@@ -652,7 +652,7 @@
             
              <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                 <small class="text-muted">目前資料: {{ Object.keys(productDb).length }} 筆</small>
-                <!-- NEW: 儲存並關閉，無 disabled 限制 -->
+                <!-- NEW: 儲存並關閉 -->
                 <button @click="saveProductDbAndClose" class="btn btn-success px-4">儲存設定</button>
             </div>
         </div>
@@ -667,10 +667,14 @@
             </div>
             
             <div class="mb-4" style="max-height: 400px; overflow-y: auto;">
-                <p class="fw-bold text-accent">更新時間：2025/11/28 23:30 CST</p>
-                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.4) 更新：</p>
+                <p class="fw-bold text-accent">更新時間：2025/11/30 10:15 CST</p>
+                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.5) 重大更新：</p>
                 <ol class="small" style="padding-left: 20px;">
-                    <li>1. 取消自動同步：開啟含有資料庫連結的網址時，不再自動同步資料庫，避免重新整理頁面時意外覆蓋當前盤點設定。需手動進入「匯入盤點資料」點擊同步。</li>
+                    <li>1. 流程優化：新增獨立的「上次盤點資訊卡」，讓您在掃描後能直接在資訊卡下方輸入備註。</li>
+                    <li>2. 掃描效率：新增「觸控對焦」功能，在相機畫面輕點即可嘗試強制對焦，解決近距離條碼模糊問題。</li>
+                    <li>3. 數據篩選：盤點差異表新增篩選/查找功能，可即時按 SKU/品名/備註查找資料。</li>
+                    <li>4. 頁面樣式調整：對應用程式的視覺風格進行了微調，以符合更簡約、無印風格的設計。</li>
+                    <li>5. 操作體驗優化：取消確認視窗彈出時自動聚焦數量欄位，避免手機鍵盤自動跳出遮擋畫面。</li>
                 </ol>
             </div>
             
@@ -688,7 +692,7 @@
     createApp({
         data() {
             return {
-                APP_VERSION: 'DD1.0.4', // Updated Version
+                APP_VERSION: 'DD1.0.5', // Updated Version
                 currentTab: 'diff',
                 isScanning: false,
                 html5QrcodeScanner: null,
@@ -1030,7 +1034,8 @@
                     expected: product.expected, 
                     qty: 1 
                 };
-                this.$nextTick(() => { if(this.$refs.qtyInput) this.$refs.qtyInput.focus(); });
+                // Removed the auto-focus logic
+                // this.$nextTick(() => { if(this.$refs.qtyInput) this.$refs.qtyInput.focus(); }); 
             },
             adjustPendingQty(val) {
                 if (!this.pendingScan) return;

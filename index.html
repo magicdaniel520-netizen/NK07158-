@@ -195,7 +195,7 @@
         #print-footer { display: none; }
 
         @media print {
-            /* 強制背景色與圖形，確保紅/藍底色能印出來 */
+            /* 強制背景色與圖形 */
             body { 
                 background-color: white; 
                 -webkit-print-color-adjust: exact !important; 
@@ -213,7 +213,7 @@
             /* 隱藏螢幕版表格 */
             .screen-only-table { display: none !important; }
             
-            /* 顯示並重設列印版表格的容器屬性，解除所有捲動限制 */
+            /* 顯示並重設列印版表格的容器屬性 */
             .print-only-table { 
                 display: block !important; 
                 overflow: visible !important; 
@@ -247,13 +247,13 @@
                 table-layout: fixed; 
             }
             
-            /* 標題列重複設定 - 核心修正 */
+            /* 標題列重複設定 */
             thead { 
                 display: table-header-group; 
             }
             
             tr { 
-                page-break-inside: avoid; /* 避免行被切斷 - 關鍵 */
+                page-break-inside: avoid; /* 避免行被切斷 */
                 display: table-row !important; 
             }
             
@@ -275,7 +275,7 @@
                 line-height: 1.2; 
             }
             
-            /* 單行呈現設定 (SKU + Name) */
+            /* 單行呈現設定 */
             .model-name, .model-sub { 
                 font-size: 8pt; 
                 margin: 0;
@@ -317,7 +317,6 @@
             .print-time { font-family: monospace; }
             .print-sign { min-width: 150px; border-bottom: 1px solid #000; text-align: center; }
             
-            /* 隱藏差異徽章背景，改純文字 */
             .diff-badge { 
                 border: none; 
                 padding: 0; 
@@ -337,7 +336,6 @@
     <div class="app-header d-flex justify-content-between align-items-center">
         <div class="app-title d-flex align-items-center">
             <span class="text-accent me-2">■</span>{{ appTitle }}
-            <!-- 版本號與資訊按鈕 -->
             <small class="text-muted ms-2 fw-normal no-print" style="font-size: 0.8rem;">v{{ APP_VERSION }}</small>
             <button @click="showReleaseNotesModal = true" class="btn btn-sm btn-outline-secondary ms-2 p-1" style="border-radius: 50%;">
                 <i class="bi bi-info-circle" style="font-size: 1.1rem;"></i>
@@ -345,7 +343,7 @@
         </div>
     </div>
     
-    <!-- 頂端按鈕區 (列印時隱藏) -->
+    <!-- 頂端按鈕區 -->
     <div class="d-flex justify-content-between align-items-center mb-3 no-print top-controls">
         <button @click="openSettings" class="btn btn-sm btn-outline-secondary rounded-1 flex-grow-1 me-2">
             <i class="bi bi-cloud-arrow-down me-1"></i>匯入盤點資料
@@ -355,7 +353,7 @@
         </button>
     </div>
 
-    <!-- 掃描控制區 (列印時隱藏) -->
+    <!-- 掃描控制區 -->
     <div class="main-card no-print">
         <div class="camera-container" v-show="isScanning">
             <div id="reader" @touchstart.prevent="focusCamera"></div> <!-- 觸控對焦 -->
@@ -374,7 +372,12 @@
 
         <label class="form-label text-muted small mb-1">手動輸入 / 搜尋</label>
         <div class="input-group position-relative">
-            <input type="text" v-model="manualInput" class="form-control" placeholder="輸入SKU、型號、品名..." @keyup.enter="handleManualInput" @input="updateSuggestions">
+            <!-- 修正：加入 compositionend 監聽，解決中文輸入選字問題 -->
+            <input type="text" v-model="manualInput" class="form-control" placeholder="輸入SKU、型號、品名..." 
+                   @keyup.enter="handleManualInput" 
+                   @input="updateSuggestions"
+                   @compositionstart="isComposing = true"
+                   @compositionend="onCompositionEnd">
             <button class="btn btn-dark" @click="handleManualInput">確認</button>
             
             <div v-if="suggestions.length > 0" class="suggestion-list">
@@ -389,7 +392,7 @@
         </div>
     </div>
 
-    <!-- 頁籤 (列印時隱藏) -->
+    <!-- 頁籤 -->
     <ul class="nav nav-pills mb-3 no-print">
         <li class="nav-item">
             <button class="nav-link" :class="{ active: currentTab === 'diff' }" @click="currentTab = 'diff'">
@@ -403,7 +406,7 @@
         </li>
     </ul>
 
-    <!-- 盤點差異表 (螢幕版 - 依差異排序) -->
+    <!-- 盤點差異表 -->
     <div v-show="currentTab === 'diff'">
         
         <!-- 上次掃描資訊卡 -->
@@ -442,7 +445,10 @@
             <span class="input-group-text" style="border-radius: var(--border-radius) 0 0 var(--border-radius); border-right: none;">
                 <i class="bi bi-filter"></i>
             </span>
-            <input type="text" v-model="filterSearchInput" class="form-control" placeholder="篩選 SKU/品名/備註...">
+            <!-- 修正：同樣加入中文輸入法監聽 -->
+            <input type="text" v-model="filterSearchInput" class="form-control" placeholder="篩選 SKU/品名/備註..."
+                   @compositionstart="isComposing = true"
+                   @compositionend="onCompositionEnd">
         </div>
         
 
@@ -479,6 +485,7 @@
                                     </span>
                                 </td>
                                 <td>
+                                    <!-- 備註輸入框 -->
                                     <input class="form-control form-control-sm border-0" style="background: transparent; border-bottom: 1px dashed #ccc !important; border-radius: 0;" list="remarkOptions" v-model="remarkDb[item.code]" @change="persistRemarks" placeholder="輸入...">
                                 </td>
                             </tr>
@@ -489,7 +496,7 @@
         </div>
     </div>
 
-    <!-- 盤點差異表 (列印版 - 依 SKU 排序 - 強制單行顯示) -->
+    <!-- 盤點差異表 (列印版) -->
     <div class="main-card p-0 print-only-table d-none" style="border:none; background: transparent;">
         <div class="bg-white main-table-container">
             <table class="table table-inventory mb-0">
@@ -609,7 +616,6 @@
                 <div class="py-2 mb-4 text-center border-top border-bottom">
                     <div class="d-flex align-items-center justify-content-center gap-3">
                         <button class="btn btn-outline-secondary rounded-circle p-0" style="width: 40px; height: 40px;" @click="adjustPendingQty(-1)"><i class="bi bi-dash"></i></button>
-                        <!-- NEW: inputmode="numeric" added here -->
                         <input type="number" v-model="pendingScan.qty" class="big-qty-input" ref="qtyInput" inputmode="numeric">
                         <button class="btn btn-outline-secondary rounded-circle p-0" style="width: 40px; height: 40px;" @click="adjustPendingQty(1)"><i class="bi bi-plus"></i></button>
                     </div>
@@ -629,12 +635,10 @@
         <div class="custom-modal" style="max-width: 600px;">
             <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
                 <h5 class="fw-bold mb-0">盤點資料匯入設定</h5> 
-                <!-- REMOVED CLOSE BUTTON -->
             </div>
             
             <div class="mb-4">
                 <label class="form-label fw-bold small text-muted">Google 試算表同步 (CSV 網址)</label>
-                <!-- NEW: 鎖定網址的狀態 -->
                 <div class="input-group">
                     <input type="text" v-model="googleSheetUrl" class="form-control" placeholder="https://..." :readonly="isUrlLocked">
                     <button @click="syncGoogleSheet" class="btn btn-primary" :disabled="isSyncing">
@@ -652,13 +656,12 @@
             
              <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                 <small class="text-muted">目前資料: {{ Object.keys(productDb).length }} 筆</small>
-                <!-- NEW: 儲存並關閉 -->
                 <button @click="saveProductDbAndClose" class="btn btn-success px-4">儲存設定</button>
             </div>
         </div>
     </div>
     
-    <!-- NEW: 關於/更新資訊 Modal -->
+    <!-- 更新資訊 Modal -->
     <div v-if="showReleaseNotesModal" class="custom-modal-overlay">
         <div class="custom-modal" style="max-width: 600px;">
             <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
@@ -667,14 +670,12 @@
             </div>
             
             <div class="mb-4" style="max-height: 400px; overflow-y: auto;">
-                <p class="fw-bold text-accent">更新時間：2025/11/30 10:15 CST</p>
-                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.5) 重大更新：</p>
+                <p class="fw-bold text-accent">更新時間：2025/11/27 20:55 CST</p>
+                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.6) 重大更新：</p>
                 <ol class="small" style="padding-left: 20px;">
-                    <li>1. 流程優化：新增獨立的「上次盤點資訊卡」，讓您在掃描後能直接在資訊卡下方輸入備註。</li>
-                    <li>2. 掃描效率：新增「觸控對焦」功能，在相機畫面輕點即可嘗試強制對焦，解決近距離條碼模糊問題。</li>
-                    <li>3. 數據篩選：盤點差異表新增篩選/查找功能，可即時按 SKU/品名/備註查找資料。</li>
-                    <li>4. 頁面樣式調整：對應用程式的視覺風格進行了微調，以符合更簡約、無印風格的設計。</li>
-                    <li>5. 操作體驗優化：取消確認視窗彈出時自動聚焦數量欄位，避免手機鍵盤自動跳出遮擋畫面。</li>
+                    <li>1. 輸入法修正：修復 Samsung/Android 鍵盤在注音/倉頡選字時無法觸發搜尋的問題。</li>
+                    <li>2. 掃描防連點：新增掃描鎖定機制，防止單次掃描重複記錄多筆資料。</li>
+                    <li>3. 操作優化：改進輸入框對中文組字的支援，提升使用體驗。</li>
                 </ol>
             </div>
             
@@ -692,13 +693,15 @@
     createApp({
         data() {
             return {
-                APP_VERSION: 'DD1.0.5', // Updated Version
+                APP_VERSION: 'DD1.0.6', 
                 currentTab: 'diff',
                 isScanning: false,
+                isProcessingScan: false, // 修正連點: 掃描處理鎖定
                 html5QrcodeScanner: null,
                 
                 manualInput: '',
                 suggestions: [],
+                isComposing: false, // 修正輸入法: 是否正在組字
                 
                 productDb: {}, 
                 remarkDb: {}, 
@@ -707,7 +710,7 @@
                 showDbModal: false,
                 showReleaseNotesModal: false, 
                 dbInputText: '',
-                googleSheetUrl: '', // NEW: 初始設定為空
+                googleSheetUrl: '', 
                 isSyncing: false,
 
                 pendingScan: null,
@@ -721,16 +724,12 @@
                 lastScannedItem: null, 
                 filterSearchInput: '', 
                 
-                // NEW: 門市名稱與網址鎖定狀態
                 storeName: '永華DC盤點系統', 
                 isUrlLocked: false
             }
         },
         computed: {
-            appTitle() {
-                // 動態標題
-                return this.storeName + ' 盤點系統';
-            },
+            appTitle() { return this.storeName + ' 盤點系統'; },
             inventorySummary() {
                 const summary = {};
                 for (const [code, item] of Object.entries(this.productDb)) {
@@ -756,26 +755,24 @@
                     item.diff = item.scanned - item.expected;
                     if (this.remarkDb[item.code] === undefined) this.remarkDb[item.code] = '';
                     
+                    item.currentScanQty = (this.lastScannedItem && item.code === this.lastScannedItem.code) 
+                        ? this.lastScannedItem.qty 
+                        : null;
+                    
                     return item;
                 }).sort((a, b) => {
-                    // 1. 主排序：差異狀態 (盤虧:1 -> 盤盈:2 -> 相符:3)
                     const getPriority = (diff) => {
                         if (diff < 0) return 1; 
                         if (diff > 0) return 2; 
                         return 3; 
                     };
-
                     const pA = getPriority(a.diff);
                     const pB = getPriority(b.diff);
                     
                     if (pA !== pB) return pA - pB;
-                    
-                    // 2. 次級排序：時間 (由新到舊 - 倒序)
                     if (a.lastScanTime !== b.lastScanTime) {
                         return b.lastScanTime - a.lastScanTime; 
                     }
-                    
-                    // 3. 末級排序：依 SKU (輔助)
                     return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
                 });
             },
@@ -788,11 +785,9 @@
                 
                 return this.inventorySummary.filter(item => {
                     const remark = this.remarkDb[item.code] || '';
-                    
                     if (this.normalizeStr(item.sku).includes(normalizedInput)) return true;
                     if (this.normalizeStr(item.name).includes(normalizedInput)) return true;
                     if (this.normalizeStr(remark).includes(normalizedInput)) return true;
-                    
                     return false;
                 });
             },
@@ -813,7 +808,6 @@
             }
         },
         mounted() {
-            // NEW: 優先處理 URL 參數
             const urlParams = new URLSearchParams(window.location.search);
             const urlStoreName = urlParams.get('store_name');
             let urlDbUrl = urlParams.get('db_url');
@@ -823,15 +817,11 @@
             }
             
             if (urlDbUrl) {
-                // vDD1.0.3: 自動修復被 & 截斷的 Google Sheet URL
                 const lostParams = ['gid', 'single', 'output', 'range'];
                 lostParams.forEach(param => {
                     if (urlParams.has(param)) {
                         const val = urlParams.get(param);
-                        // 避免重複添加 (如果原本就有)
                         if (!urlDbUrl.includes(param + '=')) {
-                            // 補回被 URLSearchParams 誤切的參數
-                            // 注意：這裡用 & 連接，因為它們本來屬於 db_url 的 query string
                             urlDbUrl += `&${param}=${val}`;
                         }
                     }
@@ -839,13 +829,10 @@
 
                 this.googleSheetUrl = decodeURIComponent(urlDbUrl);
                 this.isUrlLocked = true; 
-                // vDD1.0.4: 取消自動同步
-                // this.syncGoogleSheet(); 
             } else {
                 const savedUrl = localStorage.getItem('inventory_sheet_url_updated');
                 if (savedUrl) this.googleSheetUrl = savedUrl;
             }
-
 
             const savedRecords = localStorage.getItem('inventory_records');
             if (savedRecords) this.records = JSON.parse(savedRecords);
@@ -872,31 +859,22 @@
             if (savedBindings) this.barcodeBindingDb = JSON.parse(savedBindings);
         },
         methods: {
-            openSettings() {
-                this.showDbModal = true;
-            },
+            openSettings() { this.showDbModal = true; },
 
-            // NEW: 觸控對焦功能
             focusCamera(event) {
                 if (!this.isScanning || !this.html5QrcodeScanner) return;
-                
                 const capabilities = this.html5QrcodeScanner.getCameraCapabilities();
                 if (capabilities && capabilities.focusMode.includes('manual')) {
-                    this.html5QrcodeScanner.applyVideoConstraints({ 
-                        advanced: [{ focusMode: 'manual' }] 
-                    });
+                    this.html5QrcodeScanner.applyVideoConstraints({ advanced: [{ focusMode: 'manual' }] });
                     setTimeout(() => {
-                        this.html5QrcodeScanner.applyVideoConstraints({ 
-                            advanced: [{ focusMode: 'continuous' }] 
-                        });
+                        this.html5QrcodeScanner.applyVideoConstraints({ advanced: [{ focusMode: 'continuous' }] });
                     }, 100);
-                } else {
-                    console.log("Tap-to-focus not fully supported by camera/browser.");
                 }
             },
 
             async startScanner() {
                 this.isScanning = true;
+                this.isProcessingScan = false; // Reset lock
                 this.$nextTick(() => {
                     const config = { 
                         fps: 10, 
@@ -910,6 +888,10 @@
                     };
                     this.html5QrcodeScanner = new Html5Qrcode("reader");
                     this.html5QrcodeScanner.start({ facingMode: "environment" }, config, (decodedText) => {
+                        // 修正連點: 檢查鎖定狀態
+                        if (this.isProcessingScan || this.pendingScan) return;
+                        
+                        this.isProcessingScan = true; // 鎖定
                         this.playBeep();
                         this.triggerConfirm(decodedText);
                     }).then(() => {
@@ -928,13 +910,11 @@
                 if (this.html5QrcodeScanner) {
                     this.html5QrcodeScanner.stop().then(() => {
                         const readerDiv = document.getElementById("reader");
-                        if (readerDiv) {
-                            readerDiv.removeEventListener('touchstart', this.focusCamera);
-                        }
-                        
+                        if (readerDiv) readerDiv.removeEventListener('touchstart', this.focusCamera);
                         this.html5QrcodeScanner.clear();
                         this.html5QrcodeScanner = null;
                         this.isScanning = false;
+                        this.isProcessingScan = false; // Reset lock
                     }).catch(err => {
                         console.error(err);
                         this.isScanning = false;
@@ -963,7 +943,6 @@
                     if (this.normalizeStr(item.sku) === normInput) return { code, ...item };
                     if (this.normalizeStr(item.name) === normInput) return { code, ...item };
                 }
-
                 return { code: cleanInput, name: '未知商品 (未建檔)', sku: cleanInput, expected: 0 };
             },
 
@@ -1000,7 +979,21 @@
                 alert("綁定成功！");
             },
 
+            // 修正輸入法: 加入 composition end 處理
+            onCompositionEnd(event) {
+                this.isComposing = false;
+                // 強制觸發搜尋更新
+                this.updateSuggestions();
+                // 如果是在篩選框，強制觸發篩選
+                if(event.target === this.$el.querySelector('input[placeholder*="篩選"]')) {
+                   // Vue v-model handles this, but forcing update ensures sync
+                   this.filterSearchInput = event.target.value; 
+                }
+            },
+
             updateSuggestions() {
+                if (this.isComposing) return; // 組字中不搜尋
+                
                 const input = this.manualInput.trim();
                 if (input.length < 3) { this.suggestions = []; return; }
                 const normInput = this.normalizeStr(input);
@@ -1020,6 +1013,7 @@
                 this.triggerConfirm(item.code);
             },
             handleManualInput() {
+                if (this.isComposing) return; // 防止選字時 Enter 觸發
                 if (!this.manualInput.trim()) return;
                 this.suggestions = [];
                 this.triggerConfirm(this.manualInput.trim());
@@ -1034,8 +1028,6 @@
                     expected: product.expected, 
                     qty: 1 
                 };
-                // Removed the auto-focus logic
-                // this.$nextTick(() => { if(this.$refs.qtyInput) this.$refs.qtyInput.focus(); }); 
             },
             adjustPendingQty(val) {
                 if (!this.pendingScan) return;
@@ -1046,6 +1038,7 @@
                 this.pendingScan = null; 
                 this.isBindingMode = false;
                 this.lastScannedItem = null;
+                this.isProcessingScan = false; // 解鎖
             },
             confirmScan() {
                 if (!this.pendingScan) return;
@@ -1071,6 +1064,7 @@
                 
                 this.pendingScan = null;
                 this.isBindingMode = false;
+                this.isProcessingScan = false; // 解鎖
             },
             deleteItem(index) {
                 if(confirm("刪除此筆紀錄？")) {
@@ -1085,45 +1079,26 @@
                 }
             },
             async syncGoogleSheet() {
-                // 1. 清理網址空格
                 const url = this.googleSheetUrl.trim();
                 if (!url) return alert('請輸入網址');
-
-                // 2. 簡易網址檢查 (提示而非阻擋)
                 if (!url.includes('output=csv')) {
-                    if(!confirm("警告：這個網址看起來不像 CSV 連結 (缺少 output=csv)。\n這可能會導致讀取失敗。\n\n您確定要繼續嗎？")) return;
+                    if(!confirm("警告：網址缺少 output=csv，可能失敗。繼續？")) return;
                 }
-
                 if (this.isUrlLocked) {
                     localStorage.setItem('inventory_sheet_url_updated', url);
                 }
-                
                 this.isSyncing = true;
                 try {
                     const res = await fetch(url);
                     if (!res.ok) throw new Error(`連線錯誤 (${res.status})`);
-                    
                     const text = await res.text();
-
-                    // 3. 嚴格檢查回傳內容是否為 HTML
                     if (text.trim().substring(0, 15).toLowerCase().startsWith('<!doctype') || 
                         text.trim().substring(0, 15).toLowerCase().startsWith('<html')) {
-                        
-                        throw new Error(
-                            "同步失敗：讀取到的是「網頁 (HTML)」而不是「資料 (CSV)」。\n\n" +
-                            "可能原因：\n" +
-                            "1. 這是「編輯網址」而非「發布網址」。\n" +
-                            "2. 試算表權限未公開 (需設為：知道連結者皆可檢視)。\n" +
-                            "3. 發布設定中的「格式」未選擇 CSV。"
-                        );
+                        throw new Error("同步失敗：讀取到 HTML 網頁而非 CSV 資料。");
                     }
-
                     this.dbInputText = text;
                     this.saveProductDb(true);
-                    
-                } catch (e) { 
-                    alert(e.message); 
-                } 
+                } catch (e) { alert(e.message); } 
                 finally { this.isSyncing = false; }
             },
             saveProductDb(isFromSync = false) {
@@ -1138,36 +1113,25 @@
                         const name = parts[1] ? parts[1].trim() : '';
                         const model = parts[2] ? parts[2].trim() : '';
                         const expected = parts[3] ? parseInt(parts[3].trim()) : 0;
-
                         if (sku.toLowerCase().includes('sku') || sku.includes('編號') || name.includes('名稱')) return;
-
                         const displayName = model ? `${name} (${model})` : name;
-
                         if (sku) {
-                            newDb[sku] = { 
-                                name: displayName, 
-                                sku: sku, 
-                                expected: isNaN(expected) ? 0 : expected 
-                            };
+                            newDb[sku] = { name: displayName, sku: sku, expected: isNaN(expected) ? 0 : expected };
                             count++;
                         }
                     }
                 });
                 this.productDb = newDb;
                 localStorage.setItem('inventory_db_v4', JSON.stringify(newDb));
-                
                 if(!isFromSync) { 
-                    // 只有手動儲存時才儲存網址 (同步已經處理)
-                    if (!this.isUrlLocked) {
-                        localStorage.setItem('inventory_sheet_url_updated', this.googleSheetUrl);
-                    }
+                    if (!this.isUrlLocked) localStorage.setItem('inventory_sheet_url_updated', this.googleSheetUrl);
                     alert(`儲存成功，共 ${count} 筆`); 
                 }
                 else alert(`同步成功，共 ${count} 筆`);
             },
             saveProductDbAndClose() {
-                this.saveProductDb(false); // 執行儲存
-                this.showDbModal = false; // 直接關閉
+                this.saveProductDb(false); 
+                this.showDbModal = false; 
             },
             downloadSummaryCSV() {
                 let csv = "\uFEFFSKU,品名,應盤,實盤,差異,備註\n";

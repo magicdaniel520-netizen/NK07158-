@@ -670,12 +670,12 @@
             </div>
             
             <div class="mb-4" style="max-height: 400px; overflow-y: auto;">
-                <p class="fw-bold text-accent">更新時間：2025/11/27 20:55 CST</p>
-                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.6) 重大更新：</p>
+                <p class="fw-bold text-accent">更新時間：2026/03/11 23:30 CST</p>
+                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.7) 重大更新：</p>
                 <ol class="small" style="padding-left: 20px;">
-                    <li>1. 輸入法修正：修復 Samsung/Android 鍵盤在注音/倉頡選字時無法觸發搜尋的問題。</li>
-                    <li>2. 掃描防連點：新增掃描鎖定機制，防止單次掃描重複記錄多筆資料。</li>
-                    <li>3. 操作優化：改進輸入框對中文組字的支援，提升使用體驗。</li>
+                    <li>1. SKU 前導零容錯：掃描或輸入時，系統會自動無視 SKU 開頭的「0」進行智慧比對，無論試算表是否有補0皆可正確對應。</li>
+                    <li>2. 輸入法修正：修復 Samsung/Android 鍵盤在注音/倉頡選字時無法觸發搜尋的問題。</li>
+                    <li>3. 掃描防連點：新增掃描鎖定機制，防止單次掃描重複記錄多筆資料。</li>
                 </ol>
             </div>
             
@@ -693,7 +693,7 @@
     createApp({
         data() {
             return {
-                APP_VERSION: 'DD1.0.6', 
+                APP_VERSION: 'DD1.0.7', 
                 currentTab: 'diff',
                 isScanning: false,
                 isProcessingScan: false, // 修正連點: 掃描處理鎖定
@@ -782,10 +782,14 @@
                     return this.inventorySummary;
                 }
                 const normalizedInput = this.normalizeStr(this.filterSearchInput);
+                const noZeroInput = normalizedInput.replace(/^0+/, '');
                 
                 return this.inventorySummary.filter(item => {
                     const remark = this.remarkDb[item.code] || '';
-                    if (this.normalizeStr(item.sku).includes(normalizedInput)) return true;
+                    const itemSkuNorm = this.normalizeStr(item.sku);
+                    const itemSkuNoZero = itemSkuNorm.replace(/^0+/, '');
+                    
+                    if (itemSkuNorm.includes(normalizedInput) || (noZeroInput && itemSkuNoZero.includes(noZeroInput))) return true;
                     if (this.normalizeStr(item.name).includes(normalizedInput)) return true;
                     if (this.normalizeStr(remark).includes(normalizedInput)) return true;
                     return false;
@@ -931,6 +935,7 @@
                 if (!input) return null;
                 const cleanInput = input.trim();
                 const normInput = this.normalizeStr(cleanInput);
+                const noZeroInput = normInput.replace(/^0+/, ''); // 移除開頭的0
 
                 if (this.barcodeBindingDb[normInput]) {
                     const targetCode = this.barcodeBindingDb[normInput];
@@ -940,12 +945,20 @@
                 if (this.productDb[cleanInput]) return { code: cleanInput, ...this.productDb[cleanInput] };
 
                 for (const [code, item] of Object.entries(this.productDb)) {
-                    if (this.normalizeStr(item.sku) === normInput) return { code, ...item };
+                    const itemSkuNorm = this.normalizeStr(item.sku);
+                    const itemSkuNoZero = itemSkuNorm.replace(/^0+/, '');
+                    
+                    // 優先比對完全符合
+                    if (itemSkuNorm === normInput) return { code, ...item };
+                    // 再比對去掉開頭0後是否符合
+                    if (itemSkuNoZero !== '' && itemSkuNoZero === noZeroInput) return { code, ...item };
+                    
                     if (this.normalizeStr(item.name) === normInput) return { code, ...item };
                 }
                 return { code: cleanInput, name: '未知商品 (未建檔)', sku: cleanInput, expected: 0 };
             },
 
+            enableBindingMode() {
             enableBindingMode() {
                 this.isBindingMode = true;
                 this.bindSearchInput = '';
@@ -953,10 +966,17 @@
             },
             updateBindSuggestions() {
                 const input = this.normalizeStr(this.bindSearchInput);
+                const noZeroInput = input.replace(/^0+/, '');
                 if (input.length < 2) return;
                 const res = [];
                 for (const [code, item] of Object.entries(this.productDb)) {
-                    if (this.normalizeStr(item.name).includes(input) || this.normalizeStr(item.sku).includes(input)) {
+                    const itemSkuNorm = this.normalizeStr(item.sku);
+                    const itemSkuNoZero = itemSkuNorm.replace(/^0+/, '');
+                    
+                    const matchSku = itemSkuNorm.includes(input) || (noZeroInput && itemSkuNoZero.includes(noZeroInput));
+                    const matchName = this.normalizeStr(item.name).includes(input);
+                    
+                    if (matchSku || matchName) {
                         res.push({code, ...item});
                         if(res.length > 10) break;
                     }
@@ -997,10 +1017,17 @@
                 const input = this.manualInput.trim();
                 if (input.length < 3) { this.suggestions = []; return; }
                 const normInput = this.normalizeStr(input);
+                const noZeroInput = normInput.replace(/^0+/, ''); // 移除開頭的0
+                
                 const results = [];
                 for (const [code, item] of Object.entries(this.productDb)) {
-                    if (this.normalizeStr(item.sku).includes(normInput) || 
-                        this.normalizeStr(item.name).includes(normInput)) {
+                    const itemSkuNorm = this.normalizeStr(item.sku);
+                    const itemSkuNoZero = itemSkuNorm.replace(/^0+/, '');
+                    
+                    const matchSku = itemSkuNorm.includes(normInput) || (noZeroInput && itemSkuNoZero.includes(noZeroInput));
+                    const matchName = this.normalizeStr(item.name).includes(normInput);
+                    
+                    if (matchSku || matchName) {
                         results.push({ code, ...item });
                         if (results.length > 10) break; 
                     }

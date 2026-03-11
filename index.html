@@ -9,10 +9,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 2. Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <!-- 3. Vue 3 -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- 3. Vue 3 (改用最穩定的 cdnjs，避免被企業防火牆阻擋) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.prod.min.js"></script>
     <!-- 4. html5-qrcode (條碼掃描) -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     
     <!-- Google Fonts: Noto Sans TC -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -372,7 +373,6 @@
 
         <label class="form-label text-muted small mb-1">手動輸入 / 搜尋</label>
         <div class="input-group position-relative">
-            <!-- 修正：加入 compositionend 監聽，解決中文輸入選字問題 -->
             <input type="text" v-model="manualInput" class="form-control" placeholder="輸入SKU、型號、品名..." 
                    @keyup.enter="handleManualInput" 
                    @input="updateSuggestions"
@@ -445,7 +445,6 @@
             <span class="input-group-text" style="border-radius: var(--border-radius) 0 0 var(--border-radius); border-right: none;">
                 <i class="bi bi-filter"></i>
             </span>
-            <!-- 修正：同樣加入中文輸入法監聽 -->
             <input type="text" v-model="filterSearchInput" class="form-control" placeholder="篩選 SKU/品名/備註..."
                    @compositionstart="isComposing = true"
                    @compositionend="onCompositionEnd">
@@ -670,12 +669,12 @@
             </div>
             
             <div class="mb-4" style="max-height: 400px; overflow-y: auto;">
-                <p class="fw-bold text-accent">更新時間：2026/03/11 23:30 CST</p>
-                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.7) 重大更新：</p>
+                <p class="fw-bold text-accent">更新時間：2026/03/11 23:45 CST</p>
+                <p class="fw-bold text-accent mt-3">本次版本 (DD1.0.8) 重大更新：</p>
                 <ol class="small" style="padding-left: 20px;">
-                    <li>1. SKU 前導零容錯：掃描或輸入時，系統會自動無視 SKU 開頭的「0」進行智慧比對，無論試算表是否有補0皆可正確對應。</li>
-                    <li>2. 輸入法修正：修復 Samsung/Android 鍵盤在注音/倉頡選字時無法觸發搜尋的問題。</li>
-                    <li>3. 掃描防連點：新增掃描鎖定機制，防止單次掃描重複記錄多筆資料。</li>
+                    <li>1. 系統崩潰修復：修復了因舊版純數字 SKU 寫入記憶體導致網頁白屏死機的嚴重錯誤，現已加入全資料型別鐵布衫防護。</li>
+                    <li>2. 網路連線優化：為避免部分企業防火牆阻擋外部伺服器 (unpkg)，套件來源全面更新為國際 CDN (cdnjs)，確保各種網路環境下皆可順利載入系統。</li>
+                    <li>3. SKU 前導零容錯：掃描或輸入時，系統會自動無視 SKU 開頭的「0」進行智慧比對。</li>
                 </ol>
             </div>
             
@@ -693,15 +692,15 @@
     createApp({
         data() {
             return {
-                APP_VERSION: 'DD1.0.7', 
+                APP_VERSION: 'DD1.0.8', 
                 currentTab: 'diff',
                 isScanning: false,
-                isProcessingScan: false, // 修正連點: 掃描處理鎖定
+                isProcessingScan: false,
                 html5QrcodeScanner: null,
                 
                 manualInput: '',
                 suggestions: [],
-                isComposing: false, // 修正輸入法: 是否正在組字
+                isComposing: false,
                 
                 productDb: {}, 
                 remarkDb: {}, 
@@ -736,11 +735,11 @@
                     summary[code] = { code, ...item, scanned: 0, lastScanTime: 0 };
                 }
                 this.records.forEach(record => {
-                    let targetCode = record.code;
+                    let targetCode = String(record.code || '');
                     if (!summary[targetCode]) {
                         summary[targetCode] = { 
                             code: targetCode, 
-                            name: record.name, 
+                            name: record.name || '', 
                             sku: record.sku || targetCode, 
                             expected: 0, 
                             scanned: 0,
@@ -773,7 +772,8 @@
                     if (a.lastScanTime !== b.lastScanTime) {
                         return b.lastScanTime - a.lastScanTime; 
                     }
-                    return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
+                    // 防護：強制轉換為字串後再進行 localeCompare，避免因為純數字導致當機
+                    return String(a.sku || '').localeCompare(String(b.sku || ''), undefined, { numeric: true });
                 });
             },
             
@@ -807,7 +807,8 @@
             },
             inventorySummaryForPrint() {
                 return [...this.inventorySummary].sort((a, b) => {
-                    return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
+                    // 防護：強制轉換為字串
+                    return String(a.sku || '').localeCompare(String(b.sku || ''), undefined, { numeric: true });
                 });
             }
         },
@@ -843,17 +844,22 @@
             
             const savedDb = localStorage.getItem('inventory_db_v4'); 
             if (savedDb) {
-                this.productDb = JSON.parse(savedDb);
-                this.dbInputText = Object.entries(this.productDb).map(([c, i]) => {
-                    let displayModel = '';
-                    let displayName = i.name;
-                    const match = i.name.match(/(.*)\s\((.*)\)$/);
-                    if (match) {
-                        displayName = match[1];
-                        displayModel = match[2];
-                    }
-                    return `${i.sku},${displayName},${displayModel},${i.expected}`; 
-                }).join('\n');
+                try {
+                    this.productDb = JSON.parse(savedDb);
+                    this.dbInputText = Object.entries(this.productDb).map(([c, i]) => {
+                        let displayModel = '';
+                        // 防護：確保 displayName 絕對是字串，避免 match 函式報錯死機
+                        let displayName = String(i.name || '');
+                        const match = displayName.match(/(.*)\s\((.*)\)$/);
+                        if (match) {
+                            displayName = match[1];
+                            displayModel = match[2];
+                        }
+                        return `${i.sku},${displayName},${displayModel},${i.expected}`; 
+                    }).join('\n');
+                } catch(e) {
+                    console.error("解析本機資料庫時發生錯誤:", e);
+                }
             }
             
             const savedRemarks = localStorage.getItem('inventory_remarks');
@@ -878,7 +884,7 @@
 
             async startScanner() {
                 this.isScanning = true;
-                this.isProcessingScan = false; // Reset lock
+                this.isProcessingScan = false;
                 this.$nextTick(() => {
                     const config = { 
                         fps: 10, 
@@ -892,10 +898,9 @@
                     };
                     this.html5QrcodeScanner = new Html5Qrcode("reader");
                     this.html5QrcodeScanner.start({ facingMode: "environment" }, config, (decodedText) => {
-                        // 修正連點: 檢查鎖定狀態
                         if (this.isProcessingScan || this.pendingScan) return;
                         
-                        this.isProcessingScan = true; // 鎖定
+                        this.isProcessingScan = true; 
                         this.playBeep();
                         this.triggerConfirm(decodedText);
                     }).then(() => {
@@ -918,7 +923,7 @@
                         this.html5QrcodeScanner.clear();
                         this.html5QrcodeScanner = null;
                         this.isScanning = false;
-                        this.isProcessingScan = false; // Reset lock
+                        this.isProcessingScan = false; 
                     }).catch(err => {
                         console.error(err);
                         this.isScanning = false;
@@ -928,14 +933,15 @@
 
             normalizeStr(str) {
                 if (!str) return '';
-                return str.toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                // 防護：確保轉換為文字後再執行正規表示式
+                return String(str).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
             },
 
             findProduct(input) {
                 if (!input) return null;
-                const cleanInput = input.trim();
+                const cleanInput = String(input).trim();
                 const normInput = this.normalizeStr(cleanInput);
-                const noZeroInput = normInput.replace(/^0+/, ''); // 移除開頭的0
+                const noZeroInput = normInput.replace(/^0+/, ''); 
 
                 if (this.barcodeBindingDb[normInput]) {
                     const targetCode = this.barcodeBindingDb[normInput];
@@ -948,11 +954,8 @@
                     const itemSkuNorm = this.normalizeStr(item.sku);
                     const itemSkuNoZero = itemSkuNorm.replace(/^0+/, '');
                     
-                    // 優先比對完全符合
                     if (itemSkuNorm === normInput) return { code, ...item };
-                    // 再比對去掉開頭0後是否符合
                     if (itemSkuNoZero !== '' && itemSkuNoZero === noZeroInput) return { code, ...item };
-                    
                     if (this.normalizeStr(item.name) === normInput) return { code, ...item };
                 }
                 return { code: cleanInput, name: '未知商品 (未建檔)', sku: cleanInput, expected: 0 };
@@ -998,25 +1001,21 @@
                 alert("綁定成功！");
             },
 
-            // 修正輸入法: 加入 composition end 處理
             onCompositionEnd(event) {
                 this.isComposing = false;
-                // 強制觸發搜尋更新
                 this.updateSuggestions();
-                // 如果是在篩選框，強制觸發篩選
                 if(event.target === this.$el.querySelector('input[placeholder*="篩選"]')) {
-                   // Vue v-model handles this, but forcing update ensures sync
                    this.filterSearchInput = event.target.value; 
                 }
             },
 
             updateSuggestions() {
-                if (this.isComposing) return; // 組字中不搜尋
+                if (this.isComposing) return; 
                 
-                const input = this.manualInput.trim();
+                const input = String(this.manualInput).trim();
                 if (input.length < 3) { this.suggestions = []; return; }
                 const normInput = this.normalizeStr(input);
-                const noZeroInput = normInput.replace(/^0+/, ''); // 移除開頭的0
+                const noZeroInput = normInput.replace(/^0+/, '');
                 
                 const results = [];
                 for (const [code, item] of Object.entries(this.productDb)) {
@@ -1039,10 +1038,10 @@
                 this.triggerConfirm(item.code);
             },
             handleManualInput() {
-                if (this.isComposing) return; // 防止選字時 Enter 觸發
-                if (!this.manualInput.trim()) return;
+                if (this.isComposing) return; 
+                if (!String(this.manualInput).trim()) return;
                 this.suggestions = [];
-                this.triggerConfirm(this.manualInput.trim());
+                this.triggerConfirm(String(this.manualInput).trim());
                 this.manualInput = '';
             },
             triggerConfirm(input) {
@@ -1064,7 +1063,7 @@
                 this.pendingScan = null; 
                 this.isBindingMode = false;
                 this.lastScannedItem = null;
-                this.isProcessingScan = false; // 解鎖
+                this.isProcessingScan = false;
             },
             confirmScan() {
                 if (!this.pendingScan) return;
@@ -1090,7 +1089,7 @@
                 
                 this.pendingScan = null;
                 this.isBindingMode = false;
-                this.isProcessingScan = false; // 解鎖
+                this.isProcessingScan = false; 
             },
             deleteItem(index) {
                 if(confirm("刪除此筆紀錄？")) {
@@ -1139,7 +1138,7 @@
                         const name = parts[1] ? parts[1].trim() : '';
                         const model = parts[2] ? parts[2].trim() : '';
                         const expected = parts[3] ? parseInt(parts[3].trim()) : 0;
-                        if (sku.toLowerCase().includes('sku') || sku.includes('編號') || name.includes('名稱')) return;
+                        if (String(sku).toLowerCase().includes('sku') || String(sku).includes('編號') || String(name).includes('名稱')) return;
                         const displayName = model ? `${name} (${model})` : name;
                         if (sku) {
                             newDb[sku] = { name: displayName, sku: sku, expected: isNaN(expected) ? 0 : expected };
